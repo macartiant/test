@@ -1,0 +1,163 @@
+name: Initial test
+description: ''
+host: WORD
+api_set: {}
+script:
+  content: >
+    const openAIKey =
+    'sk-proj-'; // Use your
+    actual OpenAI API key
+
+    const openAIUrl = 'https://api.openai.com/v1/chat/completions'; // Correct
+    endpoint for chat-like API calls
+
+
+    async function sendToOpenAI(paragraphText, paragraphObject) {
+      await Word.run(async (context) => {
+        // Load the first paragraph to interact with it later.
+        const paragraph = context.document.body.paragraphs.getFirst();
+        context.load(paragraph);
+        await context.sync();
+
+        const systemPrompt = "As a legal search engine, I will respond with either YES or NO to indicate whether the specified legal concept is present in the text provided. The legal concept is 'Seller will be liable for all damages arising out of or in connection with the Agreement.'";
+        const data = JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: paragraphText }
+          ],
+          temperature: 0,
+          top_p: 1
+        });
+
+        console.log('Sending data to OpenAI API:', data);
+
+        const response = await fetch(openAIUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + openAIKey
+          },
+          body: data
+        });
+
+        if (!response.ok) {
+          console.error('HTTP error, status:', response.status, 'Status text:', response.statusText);
+          const errorResponse = await response.text();
+          console.error('Error response body:', errorResponse);
+          return;
+        }
+
+        const jsonResponse = await response.json();
+        const result = jsonResponse.choices[0].message.content.trim();
+        console.log('OpenAI API response:', result);
+
+        if (result.toUpperCase() === "YES") {
+          console.log('Found a YES response, creating a comment.');
+          const commentContent = "The specified legal concept is present in this paragraph.";
+          const comment = context.document.comments.add(paragraph.getRange(), commentContent);
+          await context.sync();
+          console.log('Comment created:', commentContent);
+        } else {
+          console.log('Response was NO, no comment created.');
+        }
+      }).catch(error => {
+        console.error('Error in sendToOpenAI:', error);
+      });
+    }
+
+
+
+
+
+    async function analyzeFirstParagraph() {
+      try {
+        await Word.run(async (context) => {
+          const paragraph = context.document.body.paragraphs.getFirst();
+          context.load(paragraph, 'text');
+          await context.sync();
+          console.log('Loaded first paragraph:', paragraph.text);
+
+          sendToOpenAI(paragraph.text, paragraph);
+        });
+      } catch (error) {
+        console.error('Error in analyzeFirstParagraph:', error);
+      }
+    }
+
+
+    async function addContentControlToSelection() {
+        const comment = context.document.getSelection().getComments().getFirst();
+    comment.content = "Your comment text here";
+
+    await context.sync();
+
+
+    }
+
+
+
+
+    Office.onReady((info) => {
+        if (info.host === Office.HostType.Word) {
+            if (!Office.context.requirements.isSetSupported('WordApi', '1.4')) {
+                console.error('This script requires WordApi 1.4 or higher.');
+                return;
+            } else {
+                console.log('API is supported, continuing with functionality.');
+            }
+        }
+    });
+  language: TypeScript
+template:
+  content: |+
+    <button id="analyzeButton">Analyze Document</button>
+    <button onclick="addContentControlToSelection()">Highlight Text</button>
+
+
+
+
+
+
+
+
+    <script>
+      document.getElementById('analyzeButton').addEventListener('click', function() {
+        console.log('Button clicked. Starting analysis.');
+        analyzeFirstParagraph();
+      });
+      
+    </script>
+
+  language: HTML
+style:
+  content: |-
+    <style>
+      .button {
+        padding: 10px 20px; /* Larger padding to increase button size */
+        font-size: 16px; /* Larger font size for better readability */
+        margin-top: 5px; /* Space between buttons */
+        cursor: pointer; /* Cursor indicates clickable buttons */
+        background-color: #4CAF50; /* A pleasant green background */
+        color: white; /* White text color */
+        border: none; /* No border for a cleaner look */
+        border-radius: 5px; /* Rounded corners for a modern appearance */
+      }
+
+      .button:hover {
+        background-color: #45a049; /* Slightly darker green on hover for feedback */
+      }
+    </style>
+  language: CSS
+libraries: |-
+  https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+  https://appsforoffice.microsoft.com/lib/1/hosted/office.d.ts
+
+  office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+  office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+  core-js@2.4.1/client/core.min.js
+  @types/core-js
+
+  jquery@3.1.1
+  @types/jquery
