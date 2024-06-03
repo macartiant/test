@@ -1,163 +1,182 @@
 name: Initial test
-description: ''
+description: Script to analyze document paragraphs using OpenAI API
 host: WORD
 api_set: {}
 script:
   content: >
-    const openAIKey =
-    'sk-proj-'; // Use your
-    actual OpenAI API key
+    let openAIKey = localStorage.getItem("openAIKey") || "";
 
-    const openAIUrl = 'https://api.openai.com/v1/chat/completions'; // Correct
-    endpoint for chat-like API calls
+    let openAIUrl = localStorage.getItem("openAIUrl") || "";
 
 
-    async function sendToOpenAI(paragraphText, paragraphObject) {
-      await Word.run(async (context) => {
-        // Load the first paragraph to interact with it later.
-        const paragraph = context.document.body.paragraphs.getFirst();
-        context.load(paragraph);
-        await context.sync();
-
-        const systemPrompt = "As a legal search engine, I will respond with either YES or NO to indicate whether the specified legal concept is present in the text provided. The legal concept is 'Seller will be liable for all damages arising out of or in connection with the Agreement.'";
-        const data = JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: paragraphText }
-          ],
-          temperature: 0,
-          top_p: 1
-        });
-
-        console.log('Sending data to OpenAI API:', data);
-
-        const response = await fetch(openAIUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + openAIKey
-          },
-          body: data
-        });
-
-        if (!response.ok) {
-          console.error('HTTP error, status:', response.status, 'Status text:', response.statusText);
-          const errorResponse = await response.text();
-          console.error('Error response body:', errorResponse);
-          return;
-        }
-
-        const jsonResponse = await response.json();
-        const result = jsonResponse.choices[0].message.content.trim();
-        console.log('OpenAI API response:', result);
-
-        if (result.toUpperCase() === "YES") {
-          console.log('Found a YES response, creating a comment.');
-          const commentContent = "The specified legal concept is present in this paragraph.";
-          const comment = context.document.comments.add(paragraph.getRange(), commentContent);
-          await context.sync();
-          console.log('Comment created:', commentContent);
-        } else {
-          console.log('Response was NO, no comment created.');
-        }
-      }).catch(error => {
-        console.error('Error in sendToOpenAI:', error);
-      });
-    }
+    document.getElementById("saveApiKeyButton").addEventListener("click",
+    function() {
+      openAIKey = document.getElementById("apiKeyInput").value;
+      localStorage.setItem("openAIKey", openAIKey);
+      alert("API Key saved");
+    });
 
 
+    document.getElementById("saveApiUrlButton").addEventListener("click",
+    function() {
+      openAIUrl = document.getElementById("apiUrlInput").value;
+      localStorage.setItem("openAIUrl", openAIUrl);
+      alert("API URL saved");
+    });
 
 
+    Office.onReady((info) => {
+      if (info.host === Office.HostType.Word) {
+        console.log("Office is ready in Word.");
+      }
+    });
 
-    async function analyzeFirstParagraph() {
+
+    async function callOpenAI(systemPrompt, modelVersion) {
+      if (!openAIKey || !openAIUrl) {
+        alert("Please enter and save your OpenAI API key and URL.");
+        return;
+      }
+
       try {
         await Word.run(async (context) => {
-          const paragraph = context.document.body.paragraphs.getFirst();
-          context.load(paragraph, 'text');
-          await context.sync();
-          console.log('Loaded first paragraph:', paragraph.text);
+          console.log("Starting Word.run()...");
 
-          sendToOpenAI(paragraph.text, paragraph);
+          // Get the content of the document
+          const body = context.document.body;
+          context.load(body, "text");
+          await context.sync();
+          console.log("Document content loaded:", body.text);
+
+          // Prepare data for the OpenAI API call
+          const data = JSON.stringify({
+            model: modelVersion,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: body.text }
+            ],
+            temperature: 0,
+            top_p: 0
+          });
+          console.log("Data prepared for OpenAI API:", data);
+
+          const response = await fetch(openAIUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: "Bearer " + openAIKey
+            },
+            body: data
+          });
+          console.log("API response received.");
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch from OpenAI: " + response.statusText);
+          }
+
+          const jsonResponse = await response.json();
+          console.log("Response JSON parsed:", jsonResponse);
+
+          const result = jsonResponse.choices[0].message.content;
+          console.log("Result from OpenAI:", result);
+
+          // Insert a visual separator
+          body.insertParagraph("----------", "End"); // You can customize this line as needed
+          body.insertParagraph("GPT Output:", "End").font.set({
+            bold: false
+          }); // Adds a header for the GPT output, optional
+
+          // Insert the result into the document as formatted text
+          result.split("\n").forEach((line, index) => {
+            if (line.trim() === "") {
+              body.insertParagraph("", "End");
+            } else {
+              body.insertParagraph(line, "End");
+            }
+          });
+
+          await context.sync();
+          console.log("Formatted result inserted into document.");
         });
       } catch (error) {
-        console.error('Error in analyzeFirstParagraph:', error);
+        console.error("Error:", error);
       }
     }
 
 
-    async function addContentControlToSelection() {
-        const comment = context.document.getSelection().getComments().getFirst();
-    comment.content = "Your comment text here";
+    // Example function usage
 
-    await context.sync();
-
-
+    function leadershipReviewer() {
+      callOpenAI(
+        "Make an assessment on whether or not the information should be submitted as it is to the Leader. Assume this is a submission by the Legal team. Rate from 0 to 5 and explain the reasoning. If it not a 5, rewrite to make it as a 5.",
+        "gpt-4"
+      );
     }
 
 
+    function bulletPointSummarizer() {
+      callOpenAI(
+        "Summarize the content and present it in bullet points. Ensure it is short to the point, only the essence. Max word per sentence: 14",
+        "gpt-4"
+      );
+    }
 
 
-    Office.onReady((info) => {
-        if (info.host === Office.HostType.Word) {
-            if (!Office.context.requirements.isSetSupported('WordApi', '1.4')) {
-                console.error('This script requires WordApi 1.4 or higher.');
-                return;
-            } else {
-                console.log('API is supported, continuing with functionality.');
-            }
-        }
-    });
+    function articleWriter() {
+      callOpenAI("As per the instructions provided, draft a clause that includes all essential elements.", "gpt-4");
+    }
+
+
+    document.getElementById("leadershipReviewerButton").addEventListener("click",
+    leadershipReviewer);
+
+    document.getElementById("bulletPointSummarizerButton").addEventListener("click",
+    bulletPointSummarizer);
+
+    document.getElementById("articleWriterButton").addEventListener("click",
+    articleWriter);
   language: TypeScript
 template:
-  content: |+
-    <button id="analyzeButton">Analyze Document</button>
-    <button onclick="addContentControlToSelection()">Highlight Text</button>
-
-
-
-
-
-
-
-
-    <script>
-      document.getElementById('analyzeButton').addEventListener('click', function() {
-        console.log('Button clicked. Starting analysis.');
-        analyzeFirstParagraph();
-      });
-      
-    </script>
-
+  content: |
+    <div>
+      <label for="apiKeyInput">OpenAI API Key:</label>
+      <input type="text" id="apiKeyInput" placeholder="Enter your API key">
+      <button id="saveApiKeyButton">Save API Key</button>
+    </div>
+    <div>
+      <label for="apiUrlInput">OpenAI API URL:</label>
+      <input type="text" id="apiUrlInput" placeholder="Enter the API URL">
+      <button id="saveApiUrlButton">Save API URL</button>
+    </div>
+    <button id="leadershipReviewerButton">Leadership Reviewer</button>
+    <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
+    <button id="articleWriterButton">Article Writer</button>
   language: HTML
 style:
   content: |-
     <style>
       .button {
-        padding: 10px 20px; /* Larger padding to increase button size */
-        font-size: 16px; /* Larger font size for better readability */
-        margin-top: 5px; /* Space between buttons */
-        cursor: pointer; /* Cursor indicates clickable buttons */
-        background-color: #4CAF50; /* A pleasant green background */
-        color: white; /* White text color */
-        border: none; /* No border for a cleaner look */
-        border-radius: 5px; /* Rounded corners for a modern appearance */
+        padding: 10px 20px;
+        font-size: 16px;
+        margin-top: 5px;
+        cursor: pointer;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
       }
 
       .button:hover {
-        background-color: #45a049; /* Slightly darker green on hover for feedback */
+        background-color: #45a049;
       }
     </style>
   language: CSS
 libraries: |-
   https://appsforoffice.microsoft.com/lib/1/hosted/office.js
   https://appsforoffice.microsoft.com/lib/1/hosted/office.d.ts
-
   office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
   office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
-
   core-js@2.4.1/client/core.min.js
   @types/core-js
-
   jquery@3.1.1
   @types/jquery
