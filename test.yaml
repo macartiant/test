@@ -1,5 +1,5 @@
-name: Initial test
-description: Script to analyze document paragraphs using OpenAI API
+name: AIG Toolbox 
+description: AIG Toolbox 
 host: WORD
 api_set: {}
 script:
@@ -7,6 +7,17 @@ script:
     let openAIKey = localStorage.getItem("openAIKey") || "";
 
     let openAIUrl = localStorage.getItem("openAIUrl") || "";
+
+
+    document.addEventListener("DOMContentLoaded", function() {
+      const apiKeyInputContainer = document.getElementById("apiKeyInputContainer");
+      const apiUrlInputContainer = document.getElementById("apiUrlInputContainer");
+
+      if (openAIKey && openAIUrl) {
+        if (apiKeyInputContainer) apiKeyInputContainer.style.display = "none";
+        if (apiUrlInputContainer) apiUrlInputContainer.style.display = "none";
+      }
+    });
 
 
     document.getElementById("saveApiKeyButton").addEventListener("click",
@@ -25,6 +36,18 @@ script:
     });
 
 
+    document.getElementById("eraseCredentialsButton").addEventListener("click",
+    function() {
+      localStorage.removeItem("openAIKey");
+      localStorage.removeItem("openAIUrl");
+      openAIKey = "";
+      openAIUrl = "";
+      document.getElementById("apiKeyInputContainer").style.display = "block";
+      document.getElementById("apiUrlInputContainer").style.display = "block";
+      alert("API credentials erased");
+    });
+
+
     Office.onReady((info) => {
       if (info.host === Office.HostType.Word) {
         console.log("Office is ready in Word.");
@@ -32,7 +55,7 @@ script:
     });
 
 
-    async function callOpenAI(systemPrompt, modelVersion) {
+    async function callOpenAI(systemPrompt, callback) {
       if (!openAIKey || !openAIUrl) {
         alert("Please enter and save your OpenAI API key and URL.");
         return;
@@ -40,90 +63,121 @@ script:
 
       try {
         await Word.run(async (context) => {
-          console.log("Starting Word.run()...");
-
-          // Get the content of the document
-          const body = context.document.body;
-          context.load(body, "text");
+          const selection = context.document.getSelection();
+          context.load(selection, "text");
           await context.sync();
-          console.log("Document content loaded:", body.text);
 
-          // Prepare data for the OpenAI API call
-          const data = JSON.stringify({
-            model: modelVersion,
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: body.text }
-            ],
-            temperature: 0,
-            top_p: 0
-          });
-          console.log("Data prepared for OpenAI API:", data);
+          let textToSend = selection.text;
+          console.log("Selected text:", textToSend); // Log the selected text
 
-          const response = await fetch(openAIUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: "Bearer " + openAIKey
-            },
-            body: data
-          });
-          console.log("API response received.");
-
-          if (!response.ok) {
-            throw new Error("Failed to fetch from OpenAI: " + response.statusText);
+          if (textToSend.length === 0) {
+            const body = context.document.body;
+            context.load(body, "text");
+            await context.sync();
+            textToSend = body.text;
+            console.log("Whole document text:", textToSend); // Log the whole document text
           }
 
-          const jsonResponse = await response.json();
-          console.log("Response JSON parsed:", jsonResponse);
+          if (textToSend.length === 0 || textToSend.length > 10000) {
+            console.log("Text validation failed. Length:", textToSend.length);
+            alert("The selected text is either empty or too long.");
+            return;
+          }
 
-          const result = jsonResponse.choices[0].message.content;
-          console.log("Result from OpenAI:", result);
+          const cfg = {
+            apiVersion: '2024-04-01-preview',
+            modelName: "gpt4o",
+            message: textToSend,
+            apiKey: openAIKey,
+            endPoint: openAIUrl,
+            stream: false,
+          };
 
-          // Insert a visual separator
-          body.insertParagraph("----------", "End"); // You can customize this line as needed
-          body.insertParagraph("GPT Output:", "End").font.set({
-            bold: false
-          }); // Adds a header for the GPT output, optional
+          console.log("Configuration settings:", cfg);
 
-          // Insert the result into the document as formatted text
-          result.split("\n").forEach((line, index) => {
-            if (line.trim() === "") {
-              body.insertParagraph("", "End");
-            } else {
-              body.insertParagraph(line, "End");
-            }
+          const bodyContent = JSON.stringify({
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: cfg.message }
+            ],
+            stream: cfg.stream,
           });
 
-          await context.sync();
-          console.log("Formatted result inserted into document.");
+          console.log("Body content to send:", bodyContent);
+
+          const response = await fetch(`${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${cfg.apiKey}`,
+            },
+            body: bodyContent,
+          });
+
+          console.log("Fetch response status:", response.status, response.statusText);
+
+          if (!response.ok) {
+            throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          console.log("Response JSON received:", result);
+
+          if (!result.msg) {
+            throw new Error("Invalid response structure");
+          }
+
+          callback(textToSend, result.msg);
+
         });
       } catch (error) {
-        console.error("Error:", error);
+        console.error("Error in callOpenAI:", error);
+        alert("Error: " + error.message);
       }
     }
 
 
-    // Example function usage
+    async function searchAndComment(searchText, commentText) {
+      await Word.run(async (context) => {
+        const selection = context.document.getSelection();
+        context.load(selection, 'text');
+        await context.sync();
+
+        if (selection.text.length > 0) {
+          selection.insertComment(commentText, { author: "OpenAI GPT", initials: "GPT" });
+          await context.sync();
+          console.log("Comment added successfully.");
+        } else {
+          const body = context.document.body;
+          body.insertParagraph("\n--- GPT output:\n", Word.InsertLocation.end);
+          commentText.split('\n').forEach(line => {
+            body.insertParagraph(line, Word.InsertLocation.end);
+          });
+          body.insertParagraph("\n", Word.InsertLocation.end);
+          await context.sync();
+          console.log("GPT output appended to the end of the document.");
+        }
+      });
+    }
+
 
     function leadershipReviewer() {
-      callOpenAI(
-        "Make an assessment on whether or not the information should be submitted as it is to the Leader. Assume this is a submission by the Legal team. Rate from 0 to 5 and explain the reasoning. If it not a 5, rewrite to make it as a 5.",
-        "gpt-4"
-      );
+      callOpenAI("Make an assessment on whether or not the information should be submitted as it is to the Leader. Assume this is a submission by the Legal team. Rate from 0 to 5 and explain the reasoning. If it not a 5, rewrite to make it as a 5.", searchAndComment);
     }
 
 
     function bulletPointSummarizer() {
-      callOpenAI(
-        "Summarize the content and present it in bullet points. Ensure it is short to the point, only the essence. Max word per sentence: 14",
-        "gpt-4"
-      );
+      callOpenAI("Summarize the content and present it in bullet points. Ensure it is short to the point, only the essence. Max word per sentence: 14", searchAndComment);
     }
 
 
     function articleWriter() {
-      callOpenAI("As per the instructions provided, draft a clause that includes all essential elements.", "gpt-4");
+      callOpenAI("As per the instructions provided, draft a clause that includes all essential elements.", searchAndComment);
+    }
+
+
+    function translateToIndonesian() {
+      callOpenAI("Translate the following text to Bahasa Indonesia.", searchAndComment);
     }
 
 
@@ -135,22 +189,33 @@ script:
 
     document.getElementById("articleWriterButton").addEventListener("click",
     articleWriter);
+
+    document.getElementById("translateToIndonesianButton").addEventListener("click",
+    translateToIndonesian);
   language: TypeScript
 template:
-  content: |
-    <div>
-      <label for="apiKeyInput">OpenAI API Key:</label>
-      <input type="text" id="apiKeyInput" placeholder="Enter your API key">
-      <button id="saveApiKeyButton">Save API Key</button>
+  content: >
+    <div id="apiKeyInputContainer">
+      <input type="text" id="apiKeyInput" placeholder="Enter Key">
+      <button id="saveApiKeyButton">Save KEY</button>
     </div>
-    <div>
-      <label for="apiUrlInput">OpenAI API URL:</label>
-      <input type="text" id="apiUrlInput" placeholder="Enter the API URL">
-      <button id="saveApiUrlButton">Save API URL</button>
+
+    <div id="apiUrlInputContainer">
+      <input type="text" id="apiUrlInput" placeholder="Enter URL">
+      <button id="saveApiUrlButton">Save  URL</button>
     </div>
+
+
+    <button id="eraseCredentialsButton">Erase Credentials</button>
+
     <button id="leadershipReviewerButton">Leadership Reviewer</button>
+
     <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
+
     <button id="articleWriterButton">Article Writer</button>
+
+    <button id="translateToIndonesianButton">Translate to Bahasa
+    Indonesia</button>
   language: HTML
 style:
   content: |-
