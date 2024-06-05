@@ -1,5 +1,5 @@
-name: AIG Toolbox 
-description: AIG Toolbox 
+name: AIG Toolbox
+description: AIG Toolbox
 host: WORD
 api_set: {}
 script:
@@ -123,11 +123,16 @@ script:
           const result = await response.json();
           console.log("Response JSON received:", result);
 
-          if (!result.msg) {
+          let output;
+          if (result.msg) {
+            output = result.msg;
+          } else if (result.choices && result.choices.length > 0) {
+            output = result.choices[0].message.content;
+          } else {
             throw new Error("Invalid response structure");
           }
 
-          callback(textToSend, result.msg);
+          callback(textToSend, output);
 
         });
       } catch (error) {
@@ -149,11 +154,12 @@ script:
           console.log("Comment added successfully.");
         } else {
           const body = context.document.body;
-          body.insertParagraph("\n--- GPT output:\n", Word.InsertLocation.end);
+          body.insertParagraph("", Word.InsertLocation.end); // Add a blank line before the GPT output
+          body.insertParagraph("--- GPT output:", Word.InsertLocation.end); // Add the GPT output header
           commentText.split('\n').forEach(line => {
             body.insertParagraph(line, Word.InsertLocation.end);
           });
-          body.insertParagraph("\n", Word.InsertLocation.end);
+          body.insertParagraph("", Word.InsertLocation.end); // Add a blank line after the GPT output
           await context.sync();
           console.log("GPT output appended to the end of the document.");
         }
@@ -196,45 +202,29 @@ script:
 template:
   content: >
     <div id="apiKeyInputContainer">
-      <input type="text" id="apiKeyInput" placeholder="Enter Key">
-      <button id="saveApiKeyButton">Save KEY</button>
+      <input type="text" id="apiKeyInput" placeholder="Enter API Key">
+      <button id="saveApiKeyButton">Save API Key</button>
     </div>
 
     <div id="apiUrlInputContainer">
-      <input type="text" id="apiUrlInput" placeholder="Enter URL">
-      <button id="saveApiUrlButton">Save  URL</button>
+      <input type="text" id="apiUrlInput" placeholder="Enter API URL">
+      <button id="saveApiUrlButton">Save API URL</button>
     </div>
 
 
-    <button id="eraseCredentialsButton">Erase Credentials</button>
+    <div style="margin-top: 20px;">
+      <button id="leadershipReviewerButton">Leadership Reviewer</button>
+      <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
+      <button id="articleWriterButton">Article Writer</button>
+      <button id="translateToIndonesianButton">Translate to Bahasa Indonesia</button>
+    </div>
 
-    <button id="leadershipReviewerButton">Leadership Reviewer</button>
 
-    <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
-
-    <button id="articleWriterButton">Article Writer</button>
-
-    <button id="translateToIndonesianButton">Translate to Bahasa
-    Indonesia</button>
+    <button id="eraseCredentialsButton" style="margin-top: 40px;">Erase
+    Credentials</button>
   language: HTML
 style:
-  content: |-
-    <style>
-      .button {
-        padding: 10px 20px;
-        font-size: 16px;
-        margin-top: 5px;
-        cursor: pointer;
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        border-radius: 5px;
-      }
-
-      .button:hover {
-        background-color: #45a049;
-      }
-    </style>
+  content: ''
   language: CSS
 libraries: |-
   https://appsforoffice.microsoft.com/lib/1/hosted/office.js
