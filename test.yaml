@@ -8,6 +8,8 @@ script:
 
     let openAIUrl = localStorage.getItem("openAIUrl") || "";
 
+    let stopExecution = false;
+
 
     document.addEventListener("DOMContentLoaded", function() {
       const apiKeyInputContainer = document.getElementById("apiKeyInputContainer");
@@ -48,6 +50,13 @@ script:
     });
 
 
+    document.getElementById("hardStopButton").addEventListener("click",
+    function() {
+      alert("Stopping execution");
+      stopExecution = true;
+    });
+
+
     Office.onReady((info) => {
       if (info.host === Office.HostType.Word) {
         console.log("Office is ready in Word.");
@@ -55,7 +64,9 @@ script:
     });
 
 
-    async function callOpenAI(systemPrompt, callback) {
+    async function callOpenAI(systemPrompt, handleOutput) {
+      stopExecution = false; // Reset the flag at the start of the function
+
       if (!openAIKey || !openAIUrl) {
         alert("Please enter and save your OpenAI API key and URL.");
         return;
@@ -78,61 +89,113 @@ script:
             console.log("Whole document text:", textToSend); // Log the whole document text
           }
 
-          if (textToSend.length === 0 || textToSend.length > 10000) {
-            console.log("Text validation failed. Length:", textToSend.length);
-            alert("The selected text is either empty or too long.");
-            return;
-          }
+          const chunkSize = 8000; // Define larger chunk size
+          const textChunks = [];
 
-          const cfg = {
-            apiVersion: '2024-04-01-preview',
-            modelName: "gpt4o",
-            message: textToSend,
-            apiKey: openAIKey,
-            endPoint: openAIUrl,
-            stream: false,
-          };
-
-          console.log("Configuration settings:", cfg);
-
-          const bodyContent = JSON.stringify({
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: cfg.message }
-            ],
-            stream: cfg.stream,
+          // Break text into chunks at paragraph boundaries
+          let paragraphs = textToSend.split("\n");
+          let currentChunk = "";
+          paragraphs.forEach(paragraph => {
+            if (currentChunk.length + paragraph.length + 1 > chunkSize) {
+              textChunks.push(currentChunk);
+              currentChunk = paragraph;
+            } else {
+              currentChunk += (currentChunk ? "\n" : "") + paragraph;
+            }
           });
-
-          console.log("Body content to send:", bodyContent);
-
-          const response = await fetch(`${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${cfg.apiKey}`,
-            },
-            body: bodyContent,
-          });
-
-          console.log("Fetch response status:", response.status, response.statusText);
-
-          if (!response.ok) {
-            throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
+          if (currentChunk) {
+            textChunks.push(currentChunk);
           }
 
-          const result = await response.json();
-          console.log("Response JSON received:", result);
+          const responses = [];
+          for (let i = 0; i < textChunks.length; i++) {
+            if (stopExecution) {
+              console.log("Execution stopped by user");
+              throw new Error("Script execution stopped by user");
+            }
 
-          let output;
-          if (result.msg) {
-            output = result.msg;
-          } else if (result.choices && result.choices.length > 0) {
-            output = result.choices[0].message.content;
-          } else {
-            throw new Error("Invalid response structure");
+            const chunk = textChunks[i];
+            const cfg = {
+              apiVersion: '2024-04-01-preview',
+              modelName: "gpt4o",
+              message: chunk,
+              apiKey: openAIKey,
+              endPoint: openAIUrl,
+              stream: false,
+            };
+
+            console.log("Configuration settings:", cfg);
+
+            const bodyContent = JSON.stringify({
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: cfg.message }
+              ],
+              stream: cfg.stream,
+            });
+
+            console.log("Body content to send:", bodyContent);
+
+            let response;
+            for (let attempt = 0; attempt < 10; attempt++) {
+              try {
+                response = await fetch(`${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${cfg.apiKey}`,
+                  },
+                  body: bodyContent,
+                });
+
+                console.log("Fetch response status:", response.status, response.statusText);
+
+                if (response.ok) {
+                  break;
+                } else {
+                  console.error(`Attempt ${attempt + 1} failed: ${response.statusText}`);
+                  if (attempt < 9) {
+                    await new Promise(resolve => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
+                  }
+                }
+              } catch (error) {
+                console.error(`Attempt ${attempt + 1} error:`, error);
+                if (attempt < 9) {
+                  await new Promise(resolve => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
+                }
+              }
+            }
+
+            if (!response || !response.ok) {
+              const errorText = response ? await response.text() : "No response";
+              console.error("Response error text:", errorText);
+              throw new Error(`Failed to fetch from OpenAI: ${response.statusText} - ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log("Response JSON received:", result);
+
+            let output;
+            if (result.msg) {
+              output = result.msg;
+            } else if (result.choices && result.choices.length > 0) {
+              output = result.choices[0].message.content;
+            } else {
+              throw new Error("Invalid response structure");
+            }
+
+            responses.push(output);
+
+            // Pause for 1 second after every 5 API calls
+            if ((i + 1) % 5 === 0) {
+              console.log("Pausing for 1 second after 5 API calls");
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
           }
 
-          callback(textToSend, output);
+          const finalOutput = responses.join("\n\n");
+          console.log("Final output ready for callback");
+          handleOutput(finalOutput);
 
         });
       } catch (error) {
@@ -142,26 +205,41 @@ script:
     }
 
 
-    async function searchAndComment(searchText, commentText) {
+    async function appendOutputToDocument(output, isFirstChunk) {
+      await Word.run(async (context) => {
+        const body = context.document.body;
+
+        if (isFirstChunk) {
+          body.insertParagraph("", Word.InsertLocation.end); // Add a blank line before the GPT output
+          body.insertParagraph("--- GPT output ---", Word.InsertLocation.end);
+        }
+
+        const paragraphs = output.split('\n');
+
+        for (const paragraph of paragraphs) {
+          const cleanParagraph = paragraph.replace(/\*\*/g, ''); // Remove '**'
+          body.insertParagraph(cleanParagraph, Word.InsertLocation.end);
+        }
+
+        await context.sync();
+      });
+    }
+
+
+    async function searchAndComment(output) {
       await Word.run(async (context) => {
         const selection = context.document.getSelection();
         context.load(selection, 'text');
         await context.sync();
 
+        const cleanOutput = output.replace(/\*\*/g, ''); // Remove '**'
+
         if (selection.text.length > 0) {
-          selection.insertComment(commentText, { author: "OpenAI GPT", initials: "GPT" });
+          selection.insertComment(cleanOutput, { author: "OpenAI GPT", initials: "GPT" });
           await context.sync();
           console.log("Comment added successfully.");
         } else {
-          const body = context.document.body;
-          body.insertParagraph("", Word.InsertLocation.end); // Add a blank line before the GPT output
-          body.insertParagraph("--- GPT output:", Word.InsertLocation.end); // Add the GPT output header
-          commentText.split('\n').forEach(line => {
-            body.insertParagraph(line, Word.InsertLocation.end);
-          });
-          body.insertParagraph("", Word.InsertLocation.end); // Add a blank line after the GPT output
-          await context.sync();
-          console.log("GPT output appended to the end of the document.");
+          await appendOutputToDocument(cleanOutput, true);
         }
       });
     }
@@ -200,7 +278,7 @@ script:
     translateToIndonesian);
   language: TypeScript
 template:
-  content: >
+  content: >+
     <div id="apiKeyInputContainer">
       <input type="text" id="apiKeyInput" placeholder="Enter API Key">
       <button id="saveApiKeyButton">Save API Key</button>
@@ -217,11 +295,13 @@ template:
       <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
       <button id="articleWriterButton">Article Writer</button>
       <button id="translateToIndonesianButton">Translate to Bahasa Indonesia</button>
+      <button id="hardStopButton" style="margin-top: 20px;">Hard Stop</button>
     </div>
 
 
     <button id="eraseCredentialsButton" style="margin-top: 40px;">Erase
     Credentials</button>
+
   language: HTML
 style:
   content: ''
