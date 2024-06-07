@@ -59,7 +59,7 @@ script:
 
     Office.onReady((info) => {
       if (info.host === Office.HostType.Word) {
-        console.log("Office is ready in Word.");
+        console.log("Ready!");
       }
     });
 
@@ -79,14 +79,12 @@ script:
           await context.sync();
 
           let textToSend = selection.text;
-          console.log("Selected text:", textToSend); // Log the selected text
 
           if (textToSend.length === 0) {
             const body = context.document.body;
             context.load(body, "text");
             await context.sync();
             textToSend = body.text;
-            console.log("Whole document text:", textToSend); // Log the whole document text
           }
 
           const chunkSize = 8000; // Define larger chunk size
@@ -124,7 +122,6 @@ script:
               stream: false,
             };
 
-            console.log("Configuration settings:", cfg);
 
             const bodyContent = JSON.stringify({
               messages: [
@@ -134,7 +131,7 @@ script:
               stream: cfg.stream,
             });
 
-            console.log("Body content to send:", bodyContent);
+            console.log("sending to GPT the following content:", bodyContent);
 
             let response;
             for (let attempt = 0; attempt < 10; attempt++) {
@@ -194,7 +191,6 @@ script:
           }
 
           const finalOutput = responses.join("\n\n");
-          console.log("Final output ready for callback");
           handleOutput(finalOutput);
 
         });
@@ -265,6 +261,11 @@ script:
     }
 
 
+    function fixLegalEnglish() {
+      callOpenAI("Improve the legal English in the following text to make it clearer and more precise. ", searchAndComment);
+    }
+
+
     document.getElementById("leadershipReviewerButton").addEventListener("click",
     leadershipReviewer);
 
@@ -276,17 +277,20 @@ script:
 
     document.getElementById("translateToIndonesianButton").addEventListener("click",
     translateToIndonesian);
+
+    document.getElementById("fixLegalEnglishButton").addEventListener("click",
+    fixLegalEnglish);
   language: TypeScript
 template:
   content: >+
     <div id="apiKeyInputContainer">
       <input type="text" id="apiKeyInput" placeholder="Enter API Key">
-      <button id="saveApiKeyButton">Save API Key</button>
+      <button id="saveApiKeyButton">Save Key</button>
     </div>
 
     <div id="apiUrlInputContainer">
       <input type="text" id="apiUrlInput" placeholder="Enter API URL">
-      <button id="saveApiUrlButton">Save API URL</button>
+      <button id="saveApiUrlButton">Save URL</button>
     </div>
 
 
@@ -295,11 +299,12 @@ template:
       <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
       <button id="articleWriterButton">Article Writer</button>
       <button id="translateToIndonesianButton">Translate to Bahasa Indonesia</button>
+      <button id="fixLegalEnglishButton">Fix Legal English</button>
       <button id="hardStopButton" style="margin-top: 20px;">Hard Stop</button>
     </div>
 
 
-    <button id="eraseCredentialsButton" style="margin-top: 40px;">Erase
+    <button id="eraseCredentialsButton" style="margin-top: 40px;">Edit
     Credentials</button>
 
   language: HTML
