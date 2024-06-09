@@ -1,4 +1,4 @@
-name: AIG Toolbox 
+name: AIG Toolbox
 description: AIG Toolbox
 host: WORD
 api_set: {}
@@ -93,7 +93,7 @@ script:
           // Break text into chunks at paragraph boundaries
           let paragraphs = textToSend.split("\n");
           let currentChunk = "";
-          paragraphs.forEach(paragraph => {
+          paragraphs.forEach((paragraph) => {
             if (currentChunk.length + paragraph.length + 1 > chunkSize) {
               textChunks.push(currentChunk);
               currentChunk = paragraph;
@@ -114,20 +114,20 @@ script:
 
             const chunk = textChunks[i];
             const cfg = {
-              apiVersion: '2024-04-01-preview',
+              apiVersion: "2024-04-01-preview",
               modelName: "gpt4o",
               message: chunk,
               apiKey: openAIKey,
               endPoint: openAIUrl,
-              stream: false,
+              stream: false
             };
 
             const bodyContent = JSON.stringify({
               messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: cfg.message }
+                { role: "system", content: systemPrompt },
+                { role: "user", content: cfg.message }
               ],
-              stream: cfg.stream,
+              stream: cfg.stream
             });
 
             console.log("sending to GPT the following content:", bodyContent);
@@ -135,14 +135,17 @@ script:
             let response;
             for (let attempt = 0; attempt < 10; attempt++) {
               try {
-                response = await fetch(`${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${cfg.apiKey}`,
-                  },
-                  body: bodyContent,
-                });
+                response = await fetch(
+                  `${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${cfg.apiKey}`
+                    },
+                    body: bodyContent
+                  }
+                );
 
                 console.log("Fetch response status:", response.status, response.statusText);
 
@@ -151,13 +154,13 @@ script:
                 } else {
                   console.error(`Attempt ${attempt + 1} failed: ${response.statusText}`);
                   if (attempt < 9) {
-                    await new Promise(resolve => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
+                    await new Promise((resolve) => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
                   }
                 }
               } catch (error) {
                 console.error(`Attempt ${attempt + 1} error:`, error);
                 if (attempt < 9) {
-                  await new Promise(resolve => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
+                  await new Promise((resolve) => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
                 }
               }
             }
@@ -185,13 +188,12 @@ script:
             // Pause for 1 second after every 5 API calls
             if ((i + 1) % 5 === 0) {
               console.log("Pausing for 1 second after 5 API calls");
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              await new Promise((resolve) => setTimeout(resolve, 1000));
             }
           }
 
           const finalOutput = responses.join("\n\n");
           handleOutput(finalOutput);
-
         });
       } catch (error) {
         console.error("Error in callOpenAI:", error);
@@ -209,10 +211,10 @@ script:
           body.insertParagraph("--- GPT output ---", Word.InsertLocation.end);
         }
 
-        const paragraphs = output.split('\n');
+        const paragraphs = output.split("\n");
 
         for (const paragraph of paragraphs) {
-          const cleanParagraph = paragraph.replace(/\*\*/g, ''); // Remove '**'
+          const cleanParagraph = paragraph.replace(/\*\*/g, ""); // Remove '**'
           body.insertParagraph(cleanParagraph, Word.InsertLocation.end);
         }
 
@@ -224,10 +226,10 @@ script:
     async function searchAndComment(output) {
       await Word.run(async (context) => {
         const selection = context.document.getSelection();
-        context.load(selection, 'text');
+        context.load(selection, "text");
         await context.sync();
 
-        const cleanOutput = output.replace(/\*\*/g, ''); // Remove '**'
+        const cleanOutput = output.replace(/\*\*/g, ""); // Remove '**'
 
         if (selection.text.length > 0) {
           selection.insertComment(cleanOutput, { author: "OpenAI GPT", initials: "GPT" });
@@ -241,17 +243,26 @@ script:
 
 
     function leadershipReviewer() {
-      callOpenAI("Make an assessment on whether or not the information should be submitted as it is to the Leader. Assume this is a submission by the Legal team. Rate from 0 to 5 and explain the reasoning. If it not a 5, rewrite to make it as a 5.", searchAndComment);
+      callOpenAI(
+        "Make an assessment on whether or not the information should be submitted as it is to the Leader. Assume this is a submission by the Legal team. Rate from 0 to 5 and explain the reasoning. If it not a 5, rewrite to make it as a 5.",
+        searchAndComment
+      );
     }
 
 
     function bulletPointSummarizer() {
-      callOpenAI("Summarize the content and present it in bullet points. Ensure it is short to the point, only the essence. Max word per sentence: 14", searchAndComment);
+      callOpenAI(
+        "Summarize the content and present it in bullet points. Ensure it is short to the point, only the essence. Max word per sentence: 14",
+        searchAndComment
+      );
     }
 
 
     function articleWriter() {
-      callOpenAI("As per the instructions provided, draft a clause that includes all essential elements.", searchAndComment);
+      callOpenAI(
+        "As per the instructions provided, draft a clause that includes all essential elements.",
+        searchAndComment
+      );
     }
 
 
@@ -274,9 +285,6 @@ script:
     document.getElementById("articleWriterButton").addEventListener("click",
     articleWriter);
 
-    document.getElementById("translateToIndonesianButton").addEventListener("click",
-    translateToIndonesian);
-
     document.getElementById("fixLegalEnglishButton").addEventListener("click",
     fixLegalEnglish);
 
@@ -289,34 +297,40 @@ script:
       while (attempt < retryCount) {
         try {
           const cfg = {
-            apiVersion: '2024-04-01-preview',
+            apiVersion: "2024-04-01-preview",
             modelName: "gpt4o",
             message: content,
             apiKey: openAIKey,
             endPoint: openAIUrl,
             stream: false,
             top_p: 0,
-            temperature: 0,
+            temperature: 0
           };
 
-         // console.log(`Calling OpenAI for translation to ${targetLanguage} with config:`, cfg);
+          // console.log(`Calling OpenAI for translation to ${targetLanguage} with config:`, cfg);
 
-          const response = await fetch(`${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${cfg.apiKey}`,
-            },
-            body: JSON.stringify({
-              messages: [
-                { role: 'system', content: `Translate the following content to ${targetLanguage}. Keep paragraph delimiters (\\r\\n, \\r, or \\n) in the output.` },
-                { role: 'user', content: cfg.message }
-              ],
-              stream: cfg.stream,
-              top_p: cfg.top_p,
-              temperature: cfg.temperature
-            }),
-          });
+          const response = await fetch(
+            `${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${cfg.apiKey}`
+              },
+              body: JSON.stringify({
+                messages: [
+                  {
+                    role: "system",
+                    content: `Translate the following content to ${targetLanguage}. Keep paragraph delimiters (\\r\\n, \\r, or \\n) in the output.`
+                  },
+                  { role: "user", content: cfg.message }
+                ],
+                stream: cfg.stream,
+                top_p: cfg.top_p,
+                temperature: cfg.temperature
+              })
+            }
+          );
 
           console.log("Fetch response status:", response.status);
 
@@ -333,7 +347,7 @@ script:
           if (attempt < retryCount) {
             const delay = initialDelay * Math.pow(2, attempt - 1);
             console.log(`Retrying in ${delay / 1000} seconds...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, delay));
           } else {
             return null;
           }
@@ -346,14 +360,14 @@ script:
       try {
         await Word.run(async (context) => {
           const body = context.document.body;
-          context.load(body, 'text');
+          context.load(body, "text");
           await context.sync();
 
           const originalText = body.text;
           console.log("Original document text:", originalText);
 
           // Split the document content into paragraphs
-          const paragraphs = originalText.split(/\r\n|\r|\n/).filter(p => p.trim().length > 0);
+          const paragraphs = originalText.split(/\r\n|\r|\n/).filter((p) => p.trim().length > 0);
           const paragraphCount = paragraphs.length;
           console.log("Number of paragraphs:", paragraphCount);
 
@@ -374,7 +388,7 @@ script:
             const translatedBatch = await callOpenAIForTranslation(batch, targetLanguage);
 
             if (translatedBatch) {
-              const translatedParagraphs = translatedBatch.split(/\r\n|\r|\n/).filter(p => p.trim().length > 0);
+              const translatedParagraphs = translatedBatch.split(/\r\n|\r|\n/).filter((p) => p.trim().length > 0);
               console.log(`Number of translated paragraphs: ${translatedParagraphs.length}`);
 
               // Ensure the lengths of paragraphs and translatedParagraphs match
@@ -419,11 +433,6 @@ script:
     });
 
 
-    document.getElementById("translateToFrenchButton").addEventListener("click",
-    function() {
-      createTableWithBatchedTranslation("French");
-    });
-
 
     document.getElementById("translateToIndonesianButton").addEventListener("click",
     function() {
@@ -431,34 +440,45 @@ script:
     });
   language: TypeScript
 template:
-  content: >
+  content: |-
     <div id="apiKeyInputContainer">
       <input type="text" id="apiKeyInput" placeholder="Enter API Key">
       <button id="saveApiKeyButton">Save Key</button>
     </div>
-
     <div id="apiUrlInputContainer">
       <input type="text" id="apiUrlInput" placeholder="Enter API URL">
       <button id="saveApiUrlButton">Save URL</button>
     </div>
 
-
     <div style="margin-top: 20px;">
+     Output either as a comment or at the end of the document:<br />
+
       <button id="leadershipReviewerButton">Leadership Reviewer</button>
       <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
       <button id="articleWriterButton">Article Writer</button>
-      <button id="translateToIndonesianButton">Translate to Bahasa Indonesia</button>
-      <button id="translateToChineseButton">Translate to Chinese</button>
-      <button id="translateToEnglishButton">Translate to English</button>
-      <button id="translateToFrenchButton">Translate to French</button>
       <button id="fixLegalEnglishButton">Fix Legal English</button>
+
+    <p />
+     Output as a side by side table:<br>
+
+
+      <button id="translateToChineseButton">Translate to Chinese</button>
+          <button id="translateToIndonesianButton">Translate to Bahasa Indonesia</button>
+
+      <button id="translateToEnglishButton">Translate to English</button>
     </div>
 
+    <p />
+    Emergency stop (reload the script after) :<br/>
+    <button id="hardStopButton">Hard Stop</button>
 
-    <button id="hardStopButton" style="margin-top: 20px;">Hard Stop</button>
 
-    <button id="eraseCredentialsButton" style="margin-top: 40px;">Edit
-    Credentials</button>
+    <p />
+    <p />
+
+    ---<br/>
+
+    <button id="eraseCredentialsButton">Edit Credentials</button>
   language: HTML
 style:
   content: ''
