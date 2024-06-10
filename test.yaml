@@ -115,7 +115,7 @@ script:
             const chunk = textChunks[i];
             const cfg = {
               apiVersion: "2024-04-01-preview",
-              modelName: "gpt4o",
+              modelName: "gpt4",
               message: chunk,
               apiKey: openAIKey,
               endPoint: openAIUrl,
@@ -271,6 +271,7 @@ script:
     }
 
 
+
     function fixLegalEnglish() {
       callOpenAI("Improve the legal English in the following text to make it clearer and more precise.", searchAndComment);
     }
@@ -298,7 +299,7 @@ script:
         try {
           const cfg = {
             apiVersion: "2024-04-01-preview",
-            modelName: "gpt4o",
+            modelName: "gpt4",
             message: content,
             apiKey: openAIKey,
             endPoint: openAIUrl,
@@ -438,6 +439,337 @@ script:
     function() {
       createTableWithBatchedTranslation("Indonesian");
     });
+
+
+    document.getElementById("translateToEnglishButton").addEventListener("click",
+    function() {
+      createTableWithBatchedTranslation("English");
+    });
+
+
+
+
+
+    Office.onReady((info) => {
+      if (info.host === Office.HostType.Word) {
+        console.log("Office is ready in Word.");
+      }
+    });
+
+
+    async function selectText(targetText) {
+      try {
+        await Word.run(async (context) => {
+          const body = context.document.body;
+          const searchResults = body.search(targetText, { matchCase: false, matchWholeWord: false });
+          context.load(searchResults, 'items');
+          await context.sync();
+
+          if (searchResults.items.length > 0) {
+            const range = searchResults.items[0];
+            range.select("Start");
+            await context.sync();
+            console.log(`Selected "${targetText}" in the document.`);
+
+            // Add a comment to the selected text
+            range.insertComment("test", { author: "GPT-Assistant", initials: "GA" });
+            await context.sync();
+            console.log("Comment added successfully.");
+          } else {
+            console.log(`Text "${targetText}" not found.`);
+          }
+        });
+      } catch (error) {
+        console.error("Error in selectText:", error);
+        alert("Error: " + error.message);
+      }
+    }
+
+
+    const detailedChecklist = [
+      {
+        id: 1,
+        risk: "Unlimited Liability",
+        description: "Clauses that impose liability on the Seller for all damages arising out of or in connection with the Agreement.",
+        example: "Seller will be liable for all damages arising out of or in connection with the Agreement."
+      },
+      {
+        id: 2,
+        risk: "Unfair Termination Rights",
+        description: "Clauses that allow the Buyer to terminate the Agreement at any time without cause.",
+        example: "Buyer may terminate the Agreement at any time without cause."
+      },
+      {
+        id: 3,
+        risk: "Intellectual Property Rights Infringement",
+        description: "Clauses that require the Seller to indemnify the Buyer against all claims of intellectual property infringement.",
+        example: "Seller will indemnify Buyer against all claims of IP infringement."
+      },
+      {
+        id: 4,
+        risk: "Unreasonable Warranty Obligations",
+        description: "Clauses that impose unreasonable warranty obligations on the Seller.",
+        example: "Seller warrants that the services will be free from defects for a period of 5 years."
+      },
+      {
+        id: 5,
+        risk: "Unfair Confidentiality Obligations",
+        description: "Clauses that require the Seller to keep all information confidential indefinitely.",
+        example: "Seller must keep all information confidential indefinitely."
+      },
+      {
+        id: 6,
+        risk: "Unfair Non-Compete Clause",
+        description: "Clauses that restrict the Seller from providing similar services to any other company for an unreasonable period.",
+        example: "Seller may not provide similar services to any other company for a period of 5 years."
+      },
+      {
+        id: 7,
+        risk: "Unreasonable Indemnification Obligations",
+        description: "Clauses that require the Seller to indemnify the Buyer for any and all claims, regardless of fault.",
+        example: "Seller indemnifies Buyer for any and all claims, regardless of fault."
+      },
+      {
+        id: 8,
+        risk: "Unfair Dispute Resolution Clause",
+        description: "Clauses that require all disputes to be resolved in the Buyer’s home jurisdiction.",
+        example: "All disputes will be resolved in the Buyer's home jurisdiction."
+      },
+      {
+        id: 9,
+        risk: "Unreasonable Service Level Agreements",
+        description: "Clauses that impose unreasonable service level agreements on the Seller.",
+        example: "Seller must maintain 99.999% uptime."
+      },
+      {
+        id: 10,
+        risk: "Unfair Force Majeure Clause",
+        description: "Clauses that do not excuse the Seller from performance in the event of a force majeure.",
+        example: "Force majeure does not excuse Seller from performance."
+      },
+      {
+        id: 11,
+        risk: "Unreasonable Audit Rights",
+        description: "Clauses that allow the Buyer to audit the Seller at any time without notice.",
+        example: "Buyer may audit Seller at any time without notice."
+      },
+      {
+        id: 12,
+        risk: "Unfair Payment Terms",
+        description: "Clauses that impose unfair payment terms on the Seller.",
+        example: "Payment is due 90 days after invoice date."
+      },
+      {
+        id: 13,
+        risk: "Unreasonable Insurance Requirements",
+        description: "Clauses that require the Seller to maintain unreasonable amounts of liability insurance.",
+        example: "Seller must maintain $10 million in liability insurance."
+      },
+      {
+        id: 14,
+        risk: "Unfair Assignment Clause",
+        description: "Clauses that allow the Buyer to assign the Agreement without the Seller’s consent.",
+        example: "Buyer may assign the Agreement without Seller's consent."
+      },
+      {
+        id: 15,
+        risk: "Unreasonable Data Security Requirements",
+        description: "Clauses that require the Seller to comply with all data security standards, regardless of cost.",
+        example: "Seller must comply with all data security standards, regardless of cost."
+      },
+      {
+        id: 16,
+        risk: "Unfair Change Control Process",
+        description: "Clauses that allow the Buyer to make changes to the services at any time without the Seller’s consent.",
+        example: "Buyer may make changes to the services at any time without Seller's consent."
+      },
+      {
+        id: 17,
+        risk: "Unreasonable Subcontracting Restrictions",
+        description: "Clauses that restrict the Seller from subcontracting without the Buyer’s consent.",
+        example: "Seller may not subcontract without Buyer's consent."
+      },
+      {
+        id: 18,
+        risk: "Unfair Default Clause",
+        description: "Clauses that consider any breach by the Seller as a default.",
+        example: "Any breach by Seller constitutes a default."
+      },
+      {
+        id: 19,
+        risk: "Unreasonable Compliance Obligations",
+        description: "Clauses that require the Seller to comply with all laws in the Buyer’s jurisdiction.",
+        example: "Seller must comply with all laws in Buyer's jurisdiction."
+      },
+      {
+        id: 20,
+        risk: "Unfair Pricing Adjustments",
+        description: "Clauses that allow the Buyer to adjust pricing at any time.",
+        example: "Buyer may adjust pricing at any time."
+      }
+    ];
+
+
+    const systemPrompt = `
+
+    You are a contract review assistant. Your task is to identify provisions in
+    the given paragraph that match any of the following risks. 
+
+    For each risk, I have provided a detailed description and an example.
+    Respond with the ID of the risk if a match is found, otherwise return 0.
+
+    Checklist:
+
+    ${detailedChecklist.map(item => `- ID: ${item.id} - ${item.risk}:
+    ${item.description}\nExample: ${item.example}`).join("\n\n")}
+
+    Example:
+
+    1
+
+    `;
+
+
+    const systemPrompt = `
+
+    You are a contract review assistant. Your task is to identify provisions in
+    the given paragraph that match any of the following risks. 
+
+    For each risk, I have provided a detailed description and an example.
+    Respond with the ID of the risk if a match is found, otherwise return 0.
+
+    Checklist:
+
+    ${detailedChecklist.map(item => `- ID: ${item.id} - ${item.risk}:
+    ${item.description}\nExample: ${item.example}`).join("\n\n")}
+
+    Example:
+
+    1
+
+    `;
+
+
+    async function checkParagraphForRisks(paragraph, retryCount = 10,
+    initialDelay = 60000) {
+      const userPrompt = paragraph;
+
+      const cfg = {
+        apiVersion: '2024-04-01-preview',
+        modelName: "gpt4",
+        systemPrompt: systemPrompt,
+        userPrompt: userPrompt,
+        apiKey: openAIKey,
+        endPoint: openAIUrl,
+        stream: false,
+        top_p: 0,
+        temperature: 0,
+      };
+
+      let attempt = 0;
+      while (attempt < retryCount) {
+        try {
+          const response = await fetch(`${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${cfg.apiKey}`,
+            },
+            body: JSON.stringify({
+              messages: [
+                { role: 'system', content: cfg.systemPrompt },
+                { role: 'user', content: cfg.userPrompt }
+              ],
+              stream: cfg.stream,
+              top_p: cfg.top_p,
+              temperature: cfg.temperature
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`Result from GPT: ${result}`);
+            
+            
+            return result.choices[0].message.content.trim();
+          } else {
+            throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
+          }
+        } catch (error) {
+          console.error(`Error calling OpenAI (attempt ${attempt + 1}):`, error);
+          attempt++;
+          if (attempt < retryCount) {
+            const delay = initialDelay * Math.pow(2, attempt - 1);
+            console.log(`Retrying in ${delay / 1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+          } else {
+            return null;
+          }
+        }
+      }
+    }
+
+
+    async function scanAndComment() {
+      try {
+        await Word.run(async (context) => {
+          const body = context.document.body;
+          const paragraphs = body.paragraphs;
+          context.load(paragraphs, 'items');
+          await context.sync();
+
+          for (let i = 0; i < paragraphs.items.length; i++) {
+            const paragraph = paragraphs.items[i];
+            const range = paragraph.getRange();
+            context.load(range, 'text');
+            await context.sync();
+
+            const text = range.text.trim().replace(/\s+/g, '');
+            const isChinese = /[\u4e00-\u9fa5]/.test(text);
+
+            if (isChinese) {
+              // Count characters for Chinese
+              if (text.length < 5) {
+                continue;
+              }
+            } else {
+              // Count words for other languages
+              const wordCount = range.text.trim().split(/\s+/).length;
+              if (wordCount < 5) {
+                continue;
+              }
+            }
+
+            console.log(`Text length or word count for paragraph ${i + 1}:`, isChinese ? text.length : range.text.trim().split(/\s+/).length);
+
+            range.select();
+            await context.sync();
+
+            const result = await checkParagraphForRisks(range.text);
+            console.log(`Querying GPT for paragraph: ${range.text}`);
+            console.log(`Result from GPT: ${result}`);
+
+            if (result && result !== '0') {
+              const riskId = parseInt(result, 10);
+              const risk = detailedChecklist.find(item => item.id === riskId);
+              if (risk) {
+                range.insertComment(`Risk: ${risk.risk}`, { author: "GPT-Assistant", initials: "GA" });
+                await context.sync();
+              }
+            }
+
+            console.log(`Processed paragraph ${i + 1}`);
+          }
+        });
+      } catch (error) {
+        console.error("Error in scanAndComment:", error);
+        alert("Error: " + error.message);
+      }
+    }
+
+
+    document.getElementById("scanAndCommentButton").addEventListener("click",
+    scanAndComment);
   language: TypeScript
 template:
   content: |-
@@ -469,10 +801,22 @@ template:
     </div>
 
     <p />
+    Risk Assessment (whole contract) :<br/>
+
+
+      <button id="scanAndCommentButton">Scan via playbook</button>
+
+    <p />
     Emergency stop (reload the script after) :<br/>
     <button id="hardStopButton">Hard Stop</button>
 
 
+
+
+    <p />
+    <p />
+    <p />
+    <p />
     <p />
     <p />
 
