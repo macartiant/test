@@ -1,9 +1,9 @@
-name: AIG Toolbox
-description: AIG Toolbox
+name:  Toolbox 
+description:  Toolbox
 host: WORD
 api_set: {}
 script:
-  content: >
+  content: >-
     let openAIKey = localStorage.getItem("openAIKey") || "";
 
     let openAIUrl = localStorage.getItem("openAIUrl") || "";
@@ -271,7 +271,6 @@ script:
     }
 
 
-
     function fixLegalEnglish() {
       callOpenAI("Improve the legal English in the following text to make it clearer and more precise.", searchAndComment);
     }
@@ -434,7 +433,6 @@ script:
     });
 
 
-
     document.getElementById("translateToIndonesianButton").addEventListener("click",
     function() {
       createTableWithBatchedTranslation("Indonesian");
@@ -445,9 +443,6 @@ script:
     function() {
       createTableWithBatchedTranslation("English");
     });
-
-
-
 
 
     Office.onReady((info) => {
@@ -462,7 +457,7 @@ script:
         await Word.run(async (context) => {
           const body = context.document.body;
           const searchResults = body.search(targetText, { matchCase: false, matchWholeWord: false });
-          context.load(searchResults, 'items');
+          context.load(searchResults, "items");
           await context.sync();
 
           if (searchResults.items.length > 0) {
@@ -490,7 +485,8 @@ script:
       {
         id: 1,
         risk: "Unlimited Liability",
-        description: "Clauses that impose liability on the Seller for all damages arising out of or in connection with the Agreement.",
+        description:
+          "Clauses that impose liability on the Seller for all damages arising out of or in connection with the Agreement.",
         example: "Seller will be liable for all damages arising out of or in connection with the Agreement."
       },
       {
@@ -502,7 +498,8 @@ script:
       {
         id: 3,
         risk: "Intellectual Property Rights Infringement",
-        description: "Clauses that require the Seller to indemnify the Buyer against all claims of intellectual property infringement.",
+        description:
+          "Clauses that require the Seller to indemnify the Buyer against all claims of intellectual property infringement.",
         example: "Seller will indemnify Buyer against all claims of IP infringement."
       },
       {
@@ -520,7 +517,8 @@ script:
       {
         id: 6,
         risk: "Unfair Non-Compete Clause",
-        description: "Clauses that restrict the Seller from providing similar services to any other company for an unreasonable period.",
+        description:
+          "Clauses that restrict the Seller from providing similar services to any other company for an unreasonable period.",
         example: "Seller may not provide similar services to any other company for a period of 5 years."
       },
       {
@@ -580,7 +578,8 @@ script:
       {
         id: 16,
         risk: "Unfair Change Control Process",
-        description: "Clauses that allow the Buyer to make changes to the services at any time without the Seller’s consent.",
+        description:
+          "Clauses that allow the Buyer to make changes to the services at any time without the Seller’s consent.",
         example: "Buyer may make changes to the services at any time without Seller's consent."
       },
       {
@@ -620,34 +619,15 @@ script:
 
     Checklist:
 
-    ${detailedChecklist.map(item => `- ID: ${item.id} - ${item.risk}:
-    ${item.description}\nExample: ${item.example}`).join("\n\n")}
-
+    ${detailedChecklist
+      .map((item) => `- ID: ${item.id} - ${item.risk}: ${item.description}\nExample: ${item.example}`)
+      .join("\n\n")}
     Example:
 
     1
 
     `;
 
-
-    const systemPrompt = `
-
-    You are a contract review assistant. Your task is to identify provisions in
-    the given paragraph that match any of the following risks. 
-
-    For each risk, I have provided a detailed description and an example.
-    Respond with the ID of the risk if a match is found, otherwise return 0.
-
-    Checklist:
-
-    ${detailedChecklist.map(item => `- ID: ${item.id} - ${item.risk}:
-    ${item.description}\nExample: ${item.example}`).join("\n\n")}
-
-    Example:
-
-    1
-
-    `;
 
 
     async function checkParagraphForRisks(paragraph, retryCount = 10,
@@ -655,7 +635,7 @@ script:
       const userPrompt = paragraph;
 
       const cfg = {
-        apiVersion: '2024-04-01-preview',
+        apiVersion: "2024-04-01-preview",
         modelName: "gpt4",
         systemPrompt: systemPrompt,
         userPrompt: userPrompt,
@@ -663,34 +643,36 @@ script:
         endPoint: openAIUrl,
         stream: false,
         top_p: 0,
-        temperature: 0,
+        temperature: 0
       };
 
       let attempt = 0;
       while (attempt < retryCount) {
         try {
-          const response = await fetch(`${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${cfg.apiKey}`,
-            },
-            body: JSON.stringify({
-              messages: [
-                { role: 'system', content: cfg.systemPrompt },
-                { role: 'user', content: cfg.userPrompt }
-              ],
-              stream: cfg.stream,
-              top_p: cfg.top_p,
-              temperature: cfg.temperature
-            }),
-          });
+          const response = await fetch(
+            `${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${cfg.apiKey}`
+              },
+              body: JSON.stringify({
+                messages: [
+                  { role: "system", content: cfg.systemPrompt },
+                  { role: "user", content: cfg.userPrompt }
+                ],
+                stream: cfg.stream,
+                top_p: cfg.top_p,
+                temperature: cfg.temperature
+              })
+            }
+          );
 
           if (response.ok) {
             const result = await response.json();
             console.log(`Result from GPT: ${result}`);
-            
-            
+
             return result.choices[0].message.content.trim();
           } else {
             throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
@@ -701,7 +683,7 @@ script:
           if (attempt < retryCount) {
             const delay = initialDelay * Math.pow(2, attempt - 1);
             console.log(`Retrying in ${delay / 1000} seconds...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            await new Promise((resolve) => setTimeout(resolve, delay));
           } else {
             return null;
           }
@@ -715,16 +697,16 @@ script:
         await Word.run(async (context) => {
           const body = context.document.body;
           const paragraphs = body.paragraphs;
-          context.load(paragraphs, 'items');
+          context.load(paragraphs, "items");
           await context.sync();
 
           for (let i = 0; i < paragraphs.items.length; i++) {
             const paragraph = paragraphs.items[i];
             const range = paragraph.getRange();
-            context.load(range, 'text');
+            context.load(range, "text");
             await context.sync();
 
-            const text = range.text.trim().replace(/\s+/g, '');
+            const text = range.text.trim().replace(/\s+/g, "");
             const isChinese = /[\u4e00-\u9fa5]/.test(text);
 
             if (isChinese) {
@@ -740,7 +722,10 @@ script:
               }
             }
 
-            console.log(`Text length or word count for paragraph ${i + 1}:`, isChinese ? text.length : range.text.trim().split(/\s+/).length);
+            console.log(
+              `Text length or word count for paragraph ${i + 1}:`,
+              isChinese ? text.length : range.text.trim().split(/\s+/).length
+            );
 
             range.select();
             await context.sync();
@@ -749,9 +734,9 @@ script:
             console.log(`Querying GPT for paragraph: ${range.text}`);
             console.log(`Result from GPT: ${result}`);
 
-            if (result && result !== '0') {
+            if (result && result !== "0") {
               const riskId = parseInt(result, 10);
-              const risk = detailedChecklist.find(item => item.id === riskId);
+              const risk = detailedChecklist.find((item) => item.id === riskId);
               if (risk) {
                 range.insertComment(`Risk: ${risk.risk}`, { author: "GPT-Assistant", initials: "GA" });
                 await context.sync();
@@ -770,6 +755,357 @@ script:
 
     document.getElementById("scanAndCommentButton").addEventListener("click",
     scanAndComment);
+
+
+    async function callOpenAIForPlaybookCheck(systemPrompt, userPrompt,
+    retryCount = 10, initialDelay = 60000) {
+      const cfg = {
+        apiVersion: "2024-04-01-preview",
+        modelName: "gpt4",
+        systemPrompt: systemPrompt,
+        userPrompt: userPrompt,
+        apiKey: openAIKey,
+        endPoint: openAIUrl,
+        stream: false,
+        top_p: 0,
+        temperature: 0
+      };
+
+      let attempt = 0;
+      while (attempt < retryCount) {
+        try {
+          const response = await fetch(
+            `${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${cfg.apiKey}`
+              },
+              body: JSON.stringify({
+                messages: [
+                  { role: "system", content: cfg.systemPrompt },
+                  { role: "user", content: cfg.userPrompt }
+                ],
+                stream: cfg.stream,
+                top_p: cfg.top_p,
+                temperature: cfg.temperature
+              })
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`Result from GPT: ${result}`);
+
+            return result.choices[0].message.content.trim();
+          } else {
+            throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
+          }
+        } catch (error) {
+          console.error(`Error calling OpenAI (attempt ${attempt + 1}):`, error);
+          attempt++;
+          if (attempt < retryCount) {
+            const delay = initialDelay * Math.pow(2, attempt - 1);
+            console.log(`Retrying in ${delay / 1000} seconds...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            alert("Error: " + error.message);
+            return null;
+          }
+        }
+      }
+    }
+
+
+
+    const playbook = [
+      { "id": 1, "rule": "CLIENT and ADVANCE AI will work together to complete the onboarding process." },
+      { "id": 2, "rule": "CLIENT agrees to cooperate with and follow instructions from ADVANCE AI during the onboarding process." },
+      { "id": 3, "rule": "ADVANCE AI will provide services to CLIENT starting from the Go-Live Date." },
+      { "id": 4, "rule": "ADVANCE AI will give CLIENT access credentials for the Services." },
+      { "id": 5, "rule": "ADVANCE AI can only give access credentials to CLIENT's nominated representatives." },
+      { "id": 6, "rule": "CLIENT agrees not to share access credentials with unauthorized third parties or staff." },
+      { "id": 7, "rule": "ADVANCE AI can change, improve, or temporarily stop the Services at any time and for any reason." },
+      { "id": 8, "rule": "ADVANCE AI retains all rights not specifically granted to CLIENT." },
+      { "id": 9, "rule": "ADVANCE AI can introduce new products or services to complement the existing services." },
+      { "id": 10, "rule": "CLIENT acknowledges the risk of Services demanding computing resource." },
+      { "id": 11, "rule": "ADVANCE AI has the right to deny or restrict access to its services to any person without providing a reason." },
+      { "id": 12, "rule": "Limited support may be provided by ADVANCE AI as part of the Services." },
+      { "id": 13, "rule": "CLIENT is responsible for managing connectivity to ADVANCE AI's data centers or computing resources." },
+      { "id": 14, "rule": "CLIENT must appoint up to two IT personnel as technical support contacts for communication with ADVANCE AI regarding the Services." },
+      { "id": 15, "rule": "CLIENT must provide ADVANCE AI with necessary information, assistance, and cooperation for providing the services." },
+      { "id": 16, "rule": "CLIENT will provide or arrange access to all necessary resources and facilities for ADVANCE AI to deliver the services effectively." },
+      { "id": 17, "rule": "CLIENT will handle end-user support for its personnel and customers, only involving ADVANCE AI when needed for problem escalation." },
+      { "id": 18, "rule": "CLIENT must attempt to resolve problems using available documentation before reporting them to ADVANCE AI." },
+      { "id": 19, "rule": "CLIENT needs internet access to communicate electronically with ADVANCE AI." },
+      { "id": 20, "rule": "CLIENT can request changes to the existing services by submitting a written Change Request to ADVANCE AI via email." },
+      { "id": 21, "rule": "ADVANCE AI will review and evaluate Change Requests, and then decide whether to refuse or accept them based on its capability." },
+      { "id": 22, "rule": "Parties must discuss and agree on any requested changes." },
+      { "id": 23, "rule": "ADVANCE AI's refusal of a change request or failure to agree on it will not be seen as a violation of the agreement or a reason for termination." },
+      { "id": 24, "rule": "ADVANCE AI is not responsible for any losses or damages that may occur from using third party content, services, facilities, or functions in connection with the Services." },
+      { "id": 25, "rule": "CLIENT agrees to enter into agreements, including End User Licensing Agreements, for any Third Party Material provided with the Services as required by ADVANCE AI." },
+      { "id": 26, "rule": "ADVANCE AI is not obligated to provide access to third-party materials if the owner/licensor stops their services." }
+    ];
+
+
+    const tableData = [
+          ["ID", "Provision from Template"],
+          ["1", "1.1 The Parties shall endeavour to complete the onboarding process and CLIENT shall use best efforts to cooperate with the onboarding process, provided that ADVANCE AI may, in its sole discretion, with written notice to CLIENT, suspend such onboarding process, or the Services if CLIENT, or any of staff of CLIENT, are under investigation for a criminal offence involving fraud, dishonesty, mismanagement or moral turpitude under any applicable law or regulation a breach of any applicable laws, regulations, codes, or guidelines."],
+          ["2", "1.2 CLIENT will cooperate and abide with reasonable directions from ADVANCE AI in relation to the onboarding process. CLIENT will provide ADVANCE AI with information as may be reasonably requested by ADVANCE AI."],
+          ["3", "1.3 ADVANCE AI shall provide the Services to CLIENT from the Go-Live Date (date inclusive), subject to any conditions as stated in this Agreement and agreed in writing between the Parties."],
+          ["4", "1.4 ADVANCE AI shall provide CLIENT with access credentials for CLIENT to access the Services. CLIENT shall nominate in writing one representative who shall be provided with the access credentials, and provide ADVANCE AI with all relevant information for ADVANCE AI to provide CLIENT with access to the Services."],
+          ["5", "1.5 ADVANCE AI shall only provide the access credentials to the nominated representatives of CLIENT, and has the right to revoke access, suspend the Services, or do any act in its sole and absolute discretion for the purpose of information security, in the event that ADVANCE AI has any reasonable suspicion that the access credentials were subject to any unauthorised usage."],
+          ["6", "1.6 CLIENT agrees that the access credentials shall not be shared with any unauthorised third parties or with any other staff. ADVANCE AI shall not be held liable for any matter in relation to an unauthorised use of access credentials."],
+          ["7", "2.1 ADVANCE AI reserves the right to, at any time and for any reason, modify, enhance or suspend the Services, or any part thereof."],
+          ["8", "2.2 All rights not expressly granted to CLIENT are for all purposes reserved to ADVANCE AI and/or persons authorized by ADVANCE AI."],
+          ["9", "2.3 ADVANCE AI may from time to time offer specific or new products, features, functionalities and/or services to complement or supplement the product/service offerings comprised within the Services. The Parties shall agree on such additional or separate terms & conditions that apply to such products, features, functionalities and/or services."],
+          ["10", "2.4 CLIENT acknowledges and agrees that there is a risk that the Services may be demanding on its computing resources. ADVANCE AI shall not be liable for any Losses arising out of or in connection with such events."],
+          ["11", "2.5 ADVANCE AI shall have the absolute right and discretion to deny or restrict access to or use of the Services by any particular person without ascribing any reasons whatsoever. In such circumstances, ADVANCE AI shall not be liable or held responsible to any party for denying or restricting access to or use of the Services."],
+          ["12", "2.6 Certain limited support, limited to ADVANCE AI providing CLIENT with testing license keys, or any other assistance that ADVANCE AI may provide from time to time, may be provided during and as part of the Services. The Services do not include ongoing training, on-site support, human verification or advisory of any Output, or other ad-hoc services or requests. If CLIENT requires such services from ADVANCE AI, additional fees may be separately chargeable by ADVANCE AI. ADVANCE AI may also deny or delay such services depending on ADVANCE AI’s operational requirements and resource availability."],
+          ["13", "a) CLIENT shall be responsible for procuring and maintaining all network connections and telecommunications links from CLIENT’s systems to ADVANCE AI’s data centres or computing resources, and for all problems, conditions, delays, delivery failures and all other loss or damage arising from or relating to CLIENT’s network connections or telecommunications links or caused by the internet;"],
+          ["14", "b) CLIENT shall designate up to two (2) employees as technical support contacts. The technical support contacts must be information technology (IT) personnel with relevant IT knowledge and experience. ADVANCE AI reserves the right to communicate only with CLIENT’s appointed technical support contacts regarding the Services;"],
+          ["15", "c) CLIENT shall provide ADVANCE AI with all information, assistance and co-operation as reasonably required for the purposes of providing the Services;"],
+          ["16", "d) CLIENT shall provide ADVANCE AI or procure for ADVANCE AI all such access to personnel, land, buildings, premises, facilities, servers, networking equipment, operating systems, data storage and data processing equipment, computing environments, whether or not controlled by CLIENT, as reasonably required by ADVANCE AI for the purposes of providing the Services;"],
+          ["17", "e) CLIENT shall provide end-user support to its own personnel and customers and escalate problems to ADVANCE AI only as and when necessary;"],
+          ["18", "f) CLIENT shall use all documentation available (including online or printed documentation) to resolve problems before reporting them to ADVANCE AI; and"],
+          ["19", "g) CLIENT must have an internet connection and must be able to send and receive electronic communications from ADVANCE AI."],
+          ["20", "a) CLIENT may make request to change, modify or add to the existing Services (\"Change Request\") by submitting a written Change Request to ADVANCE AI by way of email for ADVANCE AI’s review. The Change Request shall describe, including but not limited to: the type, schedules, reasons of such change, modification or addition and any other information as agreed between the Parties."],
+          ["21", "b) Upon receipt of a Change Request, and the necessary information as required under a Change Request, ADVANCE AI shall review and evaluate the Change Request and, at its sole and absolute discretion, provide a written refusal or statement of its capability to perform the Change Request."],
+          ["22", "c) Parties shall discuss the Change Request (including but not limited to the scope, type and schedule) and agree on the additional fee and payment procedure for such Change Request. ADVANCE AI will perform or provide the Change Request only upon mutual agreement between the Parties of such Change Request and its additional fee."],
+          ["23", "d) Either ADVANCE AI’s refusal of the Change Request or the Parties’ failure to reach an agreement pertaining to the Change Request shall not constitute or in any way interpreted as ADVANCE AI’s violation or non-performance to this Agreement or a ground for termination of this Agreement."],
+          ["24", "a) The Services may use, require, facilitate access to, be provided by or made available through third party content, services, facilities and functions, (collectively, \"Third Party Material\"). ADVANCE AI does not control such third party content, services, facilities and functions and will not be held liable for any losses, damage, costs, fees or expenses arising out of or in connection with the use of such Third Party Material."],
+          ["25", "b) Where required by ADVANCE AI and in relation to any Third Party Material provided with the Services, CLIENT will accept and enter into agreements (for such third party software, products or content) which ADVANCE AI may from time to time present to CLIENT, including but not limited to any End User Licensing Agreements (EULAs) from the proprietors or distributors of third party software."],
+          ["26", "c) Provision of Third Party Materials is subject to the continuing consent of the owner/licensor. Nothing in this Agreement shall obligate ADVANCE AI to continue providing access to any Services beyond the date that the owner/licensor ceases their services to ADVANCE AI. ADVANCE AI may, at its sole discretion, elect to either: (a) substitute alternative content that is similar in all material respects; or (b) terminate this Agreement with respect to such discontinued Services. ADVANCE AI will use its best effort to provide as much notice as reasonably practicable under the circumstances, in writing, prior to cessation of the discontinued Services."]
+        ];
+
+    async function scanAndCommentWithPlaybook() {
+      console.log("Starting scanAndCommentWithPlaybook...");
+
+      await Word.run(async (context) => {
+        const paragraphs = context.document.body.paragraphs;
+        paragraphs.load("items");
+
+        await context.sync();
+
+        console.log("Fetching paragraphs from the document...");
+        const paragraphTexts = [];
+
+        for (let i = 0; i < paragraphs.items.length; i++) {
+          const text = paragraphs.items[i].text.trim();
+          if (text) {
+            const cleanText = text.replace(/\s+/g, "");
+            const isChinese = /[\u4e00-\u9fa5]/.test(cleanText);
+
+            if (isChinese) {
+              if (cleanText.length >= 5) {
+                paragraphTexts.push({ id: i + 1, text });
+                console.log(`Paragraph ${i + 1}: ${text}`);
+              }
+            } else {
+              const wordCount = text.split(/\s+/).length;
+              if (wordCount >= 5) {
+                paragraphTexts.push({ id: i + 1, text });
+                console.log(`Paragraph ${i + 1}: ${text}`);
+              }
+            }
+          }
+        }
+
+        const systemPrompt = `
+          You are a lawyer working on behalf of Advance AI. 
+          You are reviewing a Sales agreement where Advance AI is the seller. 
+          Your task is to identify provisions in the given content that match any of the rules from the playbook. 
+          The content is provided as an array of paragraphs with IDs. Respond with a list of objects, each containing the paragraph ID, playbook ID, and a status (1 if exact match, 2 if similar but needs modification, 3 if no match).
+          If a playbook rule matches no rules from the list of paragraphs, simply put paragraph_id to 0.
+
+          ex:
+         - paragraph_id:1, playbook_id:1, status:1  --> means paragraph 1 matches the playbook rule 1
+        - paragraph_id:2, playbook_id:2, status:2  --> means paragraph 2 matches the same concept as  playbook rule 2 but the content needs to be revised
+        - paragraph_id:0, playbook_id:3, status:3  --> means no paragraphs match the playbook_id 3
+
+          
+          Playbook:
+          ${playbook.map(item => `ID: ${item.id}, Rule: ${item.rule}`).join("\n")}
+        `;
+
+        const userPrompt = JSON.stringify(paragraphTexts);
+
+        console.log("Sending to GPT the following systemPrompt content:", systemPrompt);
+        console.log("Sending to GPT the following userPrompt content:", userPrompt);
+
+        const result = await callOpenAIForPlaybookCheck(systemPrompt, userPrompt);
+
+        if (!result) {
+          console.error("No result from OpenAI");
+          return;
+        }
+
+        console.log("Result from OpenAI:", result);
+
+        let resultsTable = [];
+        try {
+          resultsTable = JSON.parse(result);
+        } catch (parseError) {
+          console.error("Failed to parse JSON response:", parseError);
+          alert("Failed to parse response from OpenAI");
+          return;
+        }
+
+        const missingTopics = resultsTable.filter(item => item.status === 3).map(item => item.playbook_id);
+
+        for (let i = 0; i < resultsTable.length; i++) {
+      const item = resultsTable[i];
+      if (item.paragraph_id !== 0) {
+        const paragraph = paragraphTexts.find(p => p.id === item.paragraph_id);
+        const topic = playbook.find(p => p.id === item.playbook_id);
+
+        if (topic) {
+          const targetText = paragraph.text.substring(0, 100); // Reduce text length for search and selection
+          if (item.status === 1) {
+            await selectTextAndAddComment(targetText, `Exact match found: ${topic.rule}`);
+            console.log(`Matching Rule: ${item.paragraph_id} with playbook ID ${item.playbook_id}`);
+          } else if (item.status === 2) {
+            const provisionFromTemplate = tableData.find(row => row[0] === String(item.playbook_id))[1];
+            await selectTextAndAddComment(targetText, `Check Rule: ${topic.rule}.\n\n Check with the following provision: ${provisionFromTemplate}`);
+            console.log(`Similar provision found for paragraph ${item.paragraph_id} with playbook ID ${item.playbook_id}. Needs modification.`);
+          }
+        } else {
+          console.log(`No matching topic found for playbook ID ${item.playbook_id}`);
+        }
+      }
+    }
+
+
+        console.log(`missingTopics.length: ${missingTopics.length}`);
+        console.log(`missingTopics: ${JSON.stringify(missingTopics)}`);
+
+
+           if (missingTopics.length > 0) {
+          const missingItems = missingTopics.map(id => {
+            const item = playbook.find(p => p.id === id);
+            return item ? `Rule ID: ${item.id} - ${item.rule}` : "";
+          }).join("\n");
+
+          const summary = `Missing Topics:\n${missingItems.replace(/\r/g, "\n")}`;
+        const body = context.document.body;
+
+        const paragraphs = summary.split("\n");
+
+        for (const paragraph of paragraphs) {
+          body.insertParagraph(paragraph, Word.InsertLocation.end);
+        }
+
+          await context.sync();
+          console.log("Missing topics summary added to the document.");
+        }
+      }).catch((error) => {
+        console.error("Error in scanAndCommentWithPlaybook:", error);
+        alert("Error: " + error.message);
+      });
+    }
+
+
+    document.getElementById("scanAndCommentWithPlaybook").addEventListener("click",
+    scanAndCommentWithPlaybook);
+
+
+    async function callOpenAIForPlaybookCheck(systemPrompt, userPrompt) {
+      const cfg = {
+        apiVersion: "2024-04-01-preview",
+        modelName: "gpt4",
+        apiKey: openAIKey,
+        endPoint: openAIUrl,
+        stream: false,
+        top_p: 0,
+        temperature: 0
+      };
+
+      let attempt = 0;
+      const retryCount = 10;
+      const initialDelay = 60000;
+
+      while (attempt < retryCount) {
+        try {
+          const response = await fetch(
+            `${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${cfg.apiKey}`
+              },
+              body: JSON.stringify({
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  { role: "user", content: userPrompt }
+                ],
+                stream: cfg.stream,
+                top_p: cfg.top_p,
+                temperature: cfg.temperature
+              })
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            console.log(`Result from GPT: ${JSON.stringify(result)}`);
+
+            return result.choices[0].message.content.trim();
+          } else {
+            throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
+          }
+        } catch (error) {
+          console.error(`Error calling OpenAI (attempt ${attempt + 1}):`, error);
+          attempt++;
+          if (attempt < retryCount) {
+            const delay = initialDelay * Math.pow(2, attempt - 1);
+            console.log(`Retrying in ${delay / 1000} seconds...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            return null;
+          }
+        }
+      }
+    }
+
+
+    document.getElementById("scanAndCommentWithPlaybook").addEventListener("click",
+    scanAndCommentWithPlaybook);
+
+
+
+    async function selectTextAndAddComment(targetText, comment) {
+      try {
+        await Word.run(async (context) => {
+          const body = context.document.body;
+          const searchResults = body.search(targetText, { matchCase: false, matchWholeWord: false });
+          context.load(searchResults, "items");
+          await context.sync();
+
+          if (searchResults.items.length > 0) {
+            const range = searchResults.items[0];
+            range.select("Start");
+            await context.sync();
+            console.log(`Selected "${targetText}" in the document.`);
+
+            // Add a comment to the selected text
+            range.insertComment(comment, { author: "GPT-Assistant", initials: "GA" });
+            await context.sync();
+            console.log("Comment added successfully.");
+          } else {
+            console.log(`Text "${targetText}" not found.`);
+          }
+        });
+      } catch (error) {
+        console.error("Error in selectTextAndAddComment:", error);
+        alert("Error: " + error.message);
+      }
+    }
+
+
+    document.getElementById("scanAndCommentWithPlaybook").addEventListener("click",
+    scanAndCommentWithPlaybook);
   language: TypeScript
 template:
   content: |-
@@ -804,7 +1140,9 @@ template:
     Risk Assessment (whole contract) :<br/>
 
 
-      <button id="scanAndCommentButton">Scan via playbook</button>
+      <button id="scanAndCommentButton">Scan via RiskBook</button>
+          <button id="scanAndCommentWithPlaybook">Scan via Template Contract</button>
+
 
     <p />
     Emergency stop (reload the script after) :<br/>
