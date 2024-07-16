@@ -378,6 +378,53 @@ script:
 
           // Clear the document content
           body.clear();
+          
+           // ----
+            // Ensure all content types are removed
+          const contentControls = body.contentControls;
+          contentControls.load();
+          await context.sync();
+
+          contentControls.items.forEach(contentControl => contentControl.delete());
+          await context.sync();
+
+          const tables = body.tables;
+          tables.load();
+          await context.sync();
+
+          while (tables.items.length > 0) {
+            tables.items[0].delete();
+            await context.sync();
+          }
+
+          const images = body.inlinePictures;
+          images.load();
+          await context.sync();
+
+          images.items.forEach(image => image.delete());
+          await context.sync();
+
+          console.log("Document content cleared.");
+
+          // Reset styles
+          const paragraphsInBody = body.paragraphs;
+          paragraphsInBody.load();
+          await context.sync();
+
+          paragraphsInBody.items.forEach(paragraph => {
+            paragraph.style = "Normal";
+            paragraph.font.set({
+              name: "Calibri",
+              size: 11,
+              color: "000000"
+            });
+          });
+          await context.sync();
+
+          console.log("Document styles reset to default.");
+
+          // ----
+          
 
           // Prepare for translation in batches
           const batchSize = 2;
@@ -721,8 +768,7 @@ script:
             const isChinese = /[\u4e00-\u9fa5]/.test(text);
             const isJapanese = /[\u3040-\u30FF\u4E00-\u9FAF]/.test(text);
 
-
-            if (isChinese ||  isJapanese) {
+            if (isChinese || isJapanese) {
               // Count characters for Chinese
               if (text.length < 12) {
                 continue;
