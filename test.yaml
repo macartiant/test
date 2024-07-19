@@ -3,7 +3,7 @@ description: Toolbox
 host: WORD
 api_set: {}
 script:
-  content: >
+  content: >+
     let openAIKey = localStorage.getItem("openAIKey") || "";
 
     let openAIUrl = localStorage.getItem("openAIUrl") || "";
@@ -14,11 +14,30 @@ script:
     document.addEventListener("DOMContentLoaded", function() {
       const apiKeyInputContainer = document.getElementById("apiKeyInputContainer");
       const apiUrlInputContainer = document.getElementById("apiUrlInputContainer");
+      const mainLayout = document.getElementById("mainLayout");
+      const merchantCommentsLayout = document.getElementById("merchantCommentsLayout");
 
       if (openAIKey && openAIUrl) {
         if (apiKeyInputContainer) apiKeyInputContainer.style.display = "none";
         if (apiUrlInputContainer) apiUrlInputContainer.style.display = "none";
       }
+
+      // Add event listener for Atome Merchant contract check button
+      document.getElementById("atomeMerchantContractCheckButton").addEventListener("click", function() {
+        mainLayout.style.display = "none";
+        merchantCommentsLayout.style.display = "block";
+      });
+
+      // Add event listener for Back button
+      document.getElementById("backButton").addEventListener("click", function() {
+        merchantCommentsLayout.style.display = "none";
+        mainLayout.style.display = "block";
+      });
+
+      document.getElementById("submitCommentButton").addEventListener("click", async function() {
+        document.getElementById("gptResponseOutput").value = ""; // Clear the answer text box
+        await atomemerchantplaybook();
+      });
     });
 
 
@@ -56,12 +75,6 @@ script:
       stopExecution = true;
     });
 
-
-    Office.onReady((info) => {
-      if (info.host === Office.HostType.Word) {
-        console.log("Office is ready in Word.");
-      }
-    });
 
 
     async function callOpenAI(systemPrompt, handleOutput) {
@@ -281,6 +294,11 @@ script:
     }
 
 
+    function ExplainLegalEnglish() {
+      callOpenAI("Explain in simpler terms. No more than 15 words per sentence", searchAndComment);
+    }
+
+
     document.getElementById("leadershipReviewerButton").addEventListener("click",
     leadershipReviewer);
 
@@ -292,6 +310,9 @@ script:
 
     document.getElementById("fixLegalEnglishButton").addEventListener("click",
     fixLegalEnglish);
+
+    document.getElementById("ExplainLegalEnglishButton").addEventListener("click",
+    ExplainLegalEnglish);
 
 
     // New functions for batched translation
@@ -378,14 +399,14 @@ script:
 
           // Clear the document content
           body.clear();
-          
-           // ----
-            // Ensure all content types are removed
+
+          // ----
+          // Ensure all content types are removed
           const contentControls = body.contentControls;
           contentControls.load();
           await context.sync();
 
-          contentControls.items.forEach(contentControl => contentControl.delete());
+          contentControls.items.forEach((contentControl) => contentControl.delete());
           await context.sync();
 
           const tables = body.tables;
@@ -401,7 +422,7 @@ script:
           images.load();
           await context.sync();
 
-          images.items.forEach(image => image.delete());
+          images.items.forEach((image) => image.delete());
           await context.sync();
 
           console.log("Document content cleared.");
@@ -411,7 +432,7 @@ script:
           paragraphsInBody.load();
           await context.sync();
 
-          paragraphsInBody.items.forEach(paragraph => {
+          paragraphsInBody.items.forEach((paragraph) => {
             paragraph.style = "Normal";
             paragraph.font.set({
               name: "Calibri",
@@ -424,7 +445,6 @@ script:
           console.log("Document styles reset to default.");
 
           // ----
-          
 
           // Prepare for translation in batches
           const batchSize = 2;
@@ -502,12 +522,6 @@ script:
       createTableWithBatchedTranslation("Thai");
     });
 
-
-    Office.onReady((info) => {
-      if (info.host === Office.HostType.Word) {
-        console.log("Office is ready in Word.");
-      }
-    });
 
 
     async function selectText(targetText) {
@@ -1300,63 +1314,177 @@ script:
 
     document.getElementById("scanAndCommentWithPlaybook").addEventListener("click",
     scanAndCommentWithPlaybook);
+
+
+    async function atomemerchantplaybook() {
+      const comment = document.getElementById("merchantCommentInput").value;
+      const systemPrompt = `
+        You are asked question from Merchants about the Merchant contract playbook. Answer those based on the information. Reject any other questions.
+        Go straight to the point with no additional un-necessary prose.
+
+        RULE 1
+        15. Limitation of Liability
+        15.1. To the extent permitted by law, under no circumstances shall the Indemnified Parties or you be liable to the other Party for any indirect, incidental, consequential, special or exemplary damages (whether in contract, tort, equity or otherwise), arising out of or relating to this Merchant Contract or the Assignment Agreement, the use of or inability to use the Atome Platform and/or the Atome Services, the Deferred Payment Structure, or Atome’s, the Assignee’s or your liabilities to third parties arising from any source. 
+        15.2. You agree that the aggregate liability of the Indemnified Parties to you for all claims arising out of or related to this Merchant Contract or the Assignment Agreement or your use or inability to use the Atome Platform, the Atome Services, the Deferred Payment Structure, or Atome’s or the Assignee’s liabilities to third parties arising from any source, whether in tort, contract, indemnity or otherwise, will not (other than as may be required by applicable law in cases involving personal injury) exceed an amount equivalent to 50% of the Fees paid by the Merchant over the preceding 12-month period. These limitations will apply even if the above stated remedy fails of its essential purpose.
+
+        Merchants' ask: (1) limitation of liability in 15.2 to be mutual (i.e. to apply to merchants' liability); (2) Atome's liability in 15.2 to be increased to 100% of the Fees paid
+
+        Atome response: (1) mutuality is agreeable provided that certain liabilities (obligations under clauses 8 and 9, any clawback under clause 20.5) are carved out of the merchant's liability cap); (2) agreeable to 100% provided Atome General Manager consent is obtained.
+
+        RULE 2
+        20. Term and Termination
+        20.2. Upon expiry of the Term, the Merchant Contract shall automatically renew on the same terms and conditions for successive twelve (12) month terms thereafter until and unless terminated by either Party by way of notice in writing issued to the other party no less than thirty (30) calendar days prior to the expiry of the prevailing Term.
+
+        Merchants' ask: Contract not to be an automatic renewal basis 
+        Atome response: Not possible as this is a logistical burden for account managers to track expiry and renewal of each contract. 
+
+        RULE 3
+        7. Cancellations of Transactions
+        7.1.1. Atome has reason to suspect, or becomes aware, that you have breached any of your obligations under Clause 11 of this Merchant Contract or any representation and warranty made by you under Clause 12 of this Merchant Contract is incorrect or misleading; 
+
+        Merchants' ask: To delete references to "suspects" 
+        Atome response: Push to retain as this allows us greater latitude to effect a cancellation preventatively. Able to accept a reasonableness qualifier, e.g. "reasonably suspects"
+      `;
+
+      const response = await callOpenAIForPlaybookCheck(systemPrompt, comment);
+      document.getElementById("gptResponseOutput").value = response;
+    }
+
+
+    // Function to call OpenAI API
+
+    async function callOpenAIForPlaybookCheck(systemPrompt, userPrompt,
+    retryCount = 10, initialDelay = 60000) {
+      const cfg = {
+        apiVersion: "2024-04-01-preview",
+        modelName: "gpt4",
+        systemPrompt: systemPrompt,
+        userPrompt: userPrompt,
+        apiKey: openAIKey,
+        endPoint: openAIUrl,
+        stream: false,
+        top_p: 0,
+        temperature: 0
+      };
+
+      let attempt = 0;
+      while (attempt < retryCount) {
+        try {
+          const response = await fetch(
+            `${cfg.endPoint}/openai/deployments/${cfg.modelName}/chat/completions?api-version=${cfg.apiVersion}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${cfg.apiKey}`
+              },
+              body: JSON.stringify({
+                messages: [
+                  { role: "system", content: cfg.systemPrompt },
+                  { role: "user", content: cfg.userPrompt }
+                ],
+                stream: cfg.stream,
+                top_p: cfg.top_p,
+                temperature: cfg.temperature
+              })
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            return result.choices[0].message.content.trim();
+          } else {
+            throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
+          }
+        } catch (error) {
+          console.error(`Error calling OpenAI (attempt ${attempt + 1}):`, error);
+          attempt++;
+          if (attempt < retryCount) {
+            const delay = initialDelay * Math.pow(2, attempt - 1);
+            console.log(`Retrying in ${delay / 1000} seconds...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            return null;
+          }
+        }
+      }
+    }
+
   language: TypeScript
 template:
-  content: |-
+  content: |+
     <div id="apiKeyInputContainer">
       <input type="text" id="apiKeyInput" placeholder="Enter API Key">
       <button id="saveApiKeyButton">Save Key</button>
     </div>
+
     <div id="apiUrlInputContainer">
       <input type="text" id="apiUrlInput" placeholder="Enter API URL">
       <button id="saveApiUrlButton">Save URL</button>
     </div>
 
-    <div style="margin-top: 20px;">
-     Output either as a comment or at the end of the document:<br />
+    <div id="mainLayout">
 
+
+    <div style="margin-top: 20px;">
+      Output either as a comment or at the end of the document:<br />
       <button id="leadershipReviewerButton">Leadership Reviewer</button>
       <button id="bulletPointSummarizerButton">Bullet Point Summarizer</button>
       <button id="articleWriterButton">Article Writer</button>
       <button id="fixLegalEnglishButton">Fix Legal English</button>
+      <button id="ExplainLegalEnglishButton">Explain</button>
 
-    <p />
-     Output as a side by side table:<br>
-
-
+      <p />
+      Output as a side by side table:<br />
       <button id="translateToChineseButton">Translate to Chinese</button>
-          <button id="translateToIndonesianButton">Translate to Bahasa Indonesia</button>
-
+      <button id="translateToIndonesianButton">Translate to Bahasa Indonesia</button>
       <button id="translateToEnglishButton">Translate to English</button>
-        <button id="translateToThaiButton">Translate to Thai</button>
-
+      <button id="translateToThaiButton">Translate to Thai</button>
     </div>
 
     <p />
-    Risk Assessment (whole contract) :<br/>
-
-
-      <button id="scanAndCommentButton">Scan via RiskBook</button>
-          <button id="scanAndCommentWithPlaybook">Scan via Template Contract</button>
-
+    Merchant contract playbook AMA (ATOME ONLY) :<br />
+      <button id="atomeMerchantContractCheckButton">Switch</button>
+      <br /><br />
 
     <p />
-    Emergency stop (reload the script after) :<br/>
+    Risk Assessment (whole contract -AAI ONLY) :<br />
+    <button id="scanAndCommentButton">Scan via RiskBook</button>
+    <button id="scanAndCommentWithPlaybook">Scan via Template Contract</button>
+
+    <p />
+    Emergency stop (reload the script after) :<br />
     <button id="hardStopButton">Hard Stop</button>
 
-
-
-
     <p />
     <p />
     <p />
     <p />
     <p />
     <p />
-
-    ---<br/>
-
+    ---
+    <br />
     <button id="eraseCredentialsButton">Edit Credentials</button>
+    </div>
+
+    <!-- Merchant Comments Layout -->
+    <div id="merchantCommentsLayout" style="display: none;">
+        <button id="backButton">Back</button>
+      <p />
+
+      <label>Drop here the comment from the Merchants:</label>
+      <p />
+      <textarea id="merchantCommentInput" style="width: 99%; height: 150px;"></textarea>
+      <p />
+      <button id="submitCommentButton">Submit</button>
+      <p />
+      <label>Response:</label>
+        <p />
+      <textarea id="gptResponseOutput" style="width: 99%; height: 150px;" readonly></textarea>      <p />
+
+
+    </div>
+
   language: HTML
 style:
   content: ''
