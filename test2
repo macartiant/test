@@ -1,0 +1,443 @@
+name: Toolbox2
+description: ''
+host: WORD
+api_set: {}
+script:
+  content: >
+    let openAIKey = localStorage.getItem("openAIKey") || "";
+
+    let stopExecution = false;
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+      const apiKeyInputContainer = document.getElementById("apiKeyInputContainer");
+      const statusIndicator = document.getElementById("statusIndicator");
+
+      if (openAIKey) {
+        if (apiKeyInputContainer) apiKeyInputContainer.style.display = "none";
+      }
+    });
+
+
+    document.getElementById("saveApiKeyButton").addEventListener("click",
+    function () {
+      openAIKey = document.getElementById("apiKeyInput").value;
+      localStorage.setItem("openAIKey", openAIKey);
+      alert("API Key saved");
+    });
+
+
+    document.getElementById("eraseCredentialsButton").addEventListener("click",
+    function () {
+      localStorage.removeItem("openAIKey");
+      openAIKey = "";
+      document.getElementById("apiKeyInputContainer").style.display = "block";
+      alert("API credentials erased");
+    });
+
+
+    document.getElementById("hardStopButton").addEventListener("click", function
+    () {
+      alert("Stopping execution");
+      stopExecution = true;
+    });
+
+
+    async function callOpenAI(systemPrompt, handleOutput) {
+      stopExecution = false;
+      updateStatus("Launching");
+
+      if (!openAIKey) {
+        alert("Please enter and save your OpenAI API key.");
+        return;
+      }
+
+      try {
+        await Word.run(async (context) => {
+          const selection = context.document.getSelection();
+          context.load(selection, "text");
+          await context.sync();
+
+          let textToSend = selection.text;
+
+          if (textToSend.length === 0) {
+            const body = context.document.body;
+            context.load(body, "text");
+            await context.sync();
+            textToSend = body.text;
+          }
+
+          const chunkSize = 8000;
+          const textChunks = [];
+          let paragraphs = textToSend.split("\n");
+          let currentChunk = "";
+
+          paragraphs.forEach((paragraph) => {
+            if (currentChunk.length + paragraph.length + 1 > chunkSize) {
+              textChunks.push(currentChunk);
+              currentChunk = paragraph;
+            } else {
+              currentChunk += (currentChunk ? "\n" : "") + paragraph;
+            }
+          });
+          if (currentChunk) {
+            textChunks.push(currentChunk);
+          }
+
+          const responses = [];
+          for (let i = 0; i < textChunks.length; i++) {
+            if (stopExecution) {
+              console.log("Execution stopped by user");
+              throw new Error("Script execution stopped by user");
+            }
+
+            const chunk = textChunks[i];
+            updateStatus("Querying GPT");
+            const bodyContent = JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: chunk }
+              ],
+              stream: false
+            });
+
+            let response;
+            for (let attempt = 0; attempt < 10; attempt++) {
+              try {
+                response = await fetch("https://api.openai.com/v1/chat/completions", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${openAIKey}`
+                  },
+                  body: bodyContent
+                });
+
+                if (response.ok) {
+                  break;
+                } else {
+                  console.error(`Attempt ${attempt + 1} failed: ${response.statusText}`);
+                  if (attempt < 9) {
+                    await new Promise((resolve) => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
+                  }
+                }
+              } catch (error) {
+                console.error(`Attempt ${attempt + 1} error:`, error);
+                if (attempt < 9) {
+                  await new Promise((resolve) => setTimeout(resolve, 5000 * Math.pow(2, attempt)));
+                }
+              }
+            }
+
+            if (!response || !response.ok) {
+              const errorText = response ? await response.text() : "No response";
+              console.error("Response error text:", errorText);
+              throw new Error(`Failed to fetch from OpenAI: ${response.statusText} - ${errorText}`);
+            }
+
+            const result = await response.json();
+            let output;
+            if (result.choices && result.choices.length > 0) {
+              output = result.choices[0].message.content;
+            } else {
+              throw new Error("Invalid response structure");
+            }
+
+            responses.push(output);
+            if ((i + 1) % 5 === 0) {
+              console.log("Pausing for 1 second after 5 API calls");
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+          }
+
+          updateStatus("Preparing Results");
+          const finalOutput = responses.join("\n\n");
+          handleOutput(finalOutput);
+          updateStatus("Done, check comments or at the end of the document");
+        });
+      } catch (error) {
+        console.error("Error in callOpenAI:", error);
+        alert("Error: " + error.message);
+      }
+    }
+
+
+    function updateStatus(status) {
+      const statusIndicator = document.getElementById("statusIndicator");
+      if (statusIndicator) {
+        statusIndicator.innerText = status;
+      }
+    }
+
+
+    async function appendOutputToDocument(output, isFirstChunk) {
+      await Word.run(async (context) => {
+        const body = context.document.body;
+        if (isFirstChunk) {
+          body.insertParagraph("", Word.InsertLocation.end);
+          body.insertParagraph("--- GPT output ---", Word.InsertLocation.end);
+        }
+
+        const paragraphs = output.split("\n");
+        for (const paragraph of paragraphs) {
+          const cleanParagraph = paragraph.replace(/\*\*/g, "");
+          body.insertParagraph(cleanParagraph, Word.InsertLocation.end);
+        }
+        await context.sync();
+      });
+    }
+
+
+    async function searchAndComment(output) {
+      await Word.run(async (context) => {
+        const selection = context.document.getSelection();
+        context.load(selection, "text");
+        await context.sync();
+
+        const cleanOutput = output.replace(/\*\*/g, "");
+        if (selection.text.length > 0) {
+          selection.insertComment(cleanOutput, { author: "OpenAI GPT", initials: "GPT" });
+          await context.sync();
+        } else {
+          await appendOutputToDocument(cleanOutput, true);
+        }
+      });
+    }
+
+
+    function leadershipReviewer() {
+      callOpenAI(
+        "Make an assessment on whether or not the information should be submitted as it is to the Leaders. Rate from 0 to 5 and explain the reasoning. If it not a 5, rewrite to make it as a 5.",
+        searchAndComment
+      );
+    }
+
+
+    function bulletPointSummarizer() {
+      callOpenAI(
+        "Summarize the content and present it in bullet points. Ensure it is short to the point, only the essence. Max word per sentence: 14. Output language must be the same as the one in input",
+        searchAndComment
+      );
+    }
+
+
+    function articleWriter() {
+      callOpenAI("Rewrite the submitted text. Output language must be the same as the one in input", searchAndComment);
+    }
+
+
+    function fixLegalEnglish() {
+      callOpenAI(
+        "Improve the language in the following text to make it clearer and more precise. Output language must be the same as the one in input",
+        searchAndComment
+      );
+    }
+
+
+    function ExplainLegalEnglish() {
+      callOpenAI("Explain in simpler terms. No more than 15 words per sentence", searchAndComment);
+    }
+
+
+    document.getElementById("leadershipReviewerButton").addEventListener("click",
+    leadershipReviewer);
+
+    document.getElementById("bulletPointSummarizerButton").addEventListener("click",
+    bulletPointSummarizer);
+
+    document.getElementById("articleWriterButton").addEventListener("click",
+    articleWriter);
+
+    document.getElementById("fixLegalEnglishButton").addEventListener("click",
+    fixLegalEnglish);
+
+    document.getElementById("ExplainLegalEnglishButton").addEventListener("click",
+    ExplainLegalEnglish);
+
+
+    async function callOpenAIForTranslation(content, targetLanguage, retryCount
+    = 10, initialDelay = 5000) {
+      let attempt = 0;
+      while (attempt < retryCount) {
+        try {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${openAIKey}`
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                {
+                  role: "system",
+                  content: `Translate the following content to ${targetLanguage}. Keep paragraph delimiters (\\r\\n, \\r, or \\n) in the output.`
+                },
+                { role: "user", content }
+              ],
+              stream: false,
+              top_p: 0,
+              temperature: 0
+            })
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            return result.choices[0].message.content;
+          } else {
+            throw new Error(`Failed to fetch from OpenAI: ${response.statusText}`);
+          }
+        } catch (error) {
+          console.error(`Error calling OpenAI for translation to ${targetLanguage} (attempt ${attempt + 1}):`, error);
+          attempt++;
+          if (attempt < retryCount) {
+            const delay = initialDelay * Math.pow(2, attempt - 1);
+            console.log(`Retrying in ${delay / 1000} seconds...`);
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          } else {
+            return null;
+          }
+        }
+      }
+    }
+
+
+    async function createTableWithBatchedTranslation(targetLanguage) {
+      try {
+        await Word.run(async (context) => {
+          const body = context.document.body;
+          context.load(body, "text");
+          await context.sync();
+
+          const originalText = body.text;
+          const paragraphs = originalText.split(/\r\n|\r|\n/).filter((p) => p.trim().length > 0);
+          const paragraphCount = paragraphs.length;
+
+          body.clear();
+
+          const batchSize = 2;
+          for (let i = 0; i < paragraphCount; i += batchSize) {
+            if (stopExecution) {
+              console.log("Execution stopped by user.");
+              return;
+            }
+
+            const batch = paragraphs.slice(i, i + batchSize).join("\n");
+            const translatedBatch = await callOpenAIForTranslation(batch, targetLanguage);
+
+            if (translatedBatch) {
+              const translatedParagraphs = translatedBatch.split(/\r\n|\r|\n/).filter((p) => p.trim().length > 0);
+              for (let j = 0; j < translatedParagraphs.length; j++) {
+                if (i + j < paragraphCount) {
+                  const originalParagraph = paragraphs[i + j] || "";
+                  const translatedParagraph = translatedParagraphs[j] || "";
+                  if (originalParagraph.trim() !== "" || translatedParagraph.trim() !== "") {
+                    const table = body.insertTable(1, 2, Word.InsertLocation.end, [
+                      [originalParagraph, translatedParagraph]
+                    ]);
+                    body.insertParagraph("", Word.InsertLocation.end);
+                    await context.sync();
+                  }
+                }
+              }
+            } else {
+              alert("Translation failed. Please try again later.");
+              return;
+            }
+          }
+        });
+      } catch (error) {
+        console.error("Error in createTableWithBatchedTranslation:", error);
+        alert("Error: " + error.message);
+      }
+    }
+
+
+    document.getElementById("translateToJapaneseButton").addEventListener("click",
+    function () {
+      createTableWithBatchedTranslation("Japanese");
+    });
+
+
+    document.getElementById("translateToEnglishButton").addEventListener("click",
+    function () {
+      createTableWithBatchedTranslation("English");
+    });
+
+
+    async function selectText(targetText) {
+      try {
+        await Word.run(async (context) => {
+          const body = context.document.body;
+          const searchResults = body.search(targetText, { matchCase: false, matchWholeWord: false });
+          context.load(searchResults, "items");
+          await context.sync();
+
+          if (searchResults.items.length > 0) {
+            const range = searchResults.items[0];
+            range.select("Start");
+            await context.sync();
+
+            range.insertComment("test", { author: "GPT-Assistant", initials: "GA" });
+            await context.sync();
+          }
+        });
+      } catch (error) {
+        console.error("Error in selectText:", error);
+        alert("Error: " + error.message);
+      }
+    }
+
+
+    async function selectTextAndAddComment(targetText, comment) {
+      try {
+        await Word.run(async (context) => {
+          const body = context.document.body;
+          const searchResults = body.search(targetText, { matchCase: false, matchWholeWord: false });
+          context.load(searchResults, "items");
+          await context.sync();
+
+          if (searchResults.items.length > 0) {
+            const range = searchResults.items[0];
+            range.select("Start");
+            await context.sync();
+
+            range.insertComment(comment, { author: "GPT-Assistant", initials: "GA" });
+            await context.sync();
+          }
+        });
+      } catch (error) {
+        console.error("Error in selectTextAndAddComment:", error);
+        alert("Error: " + error.message);
+      }
+    }
+  language: typescript
+template:
+  content: "<div id=\"apiKeyInputContainer\">\n\t<input type=\"text\" id=\"apiKeyInput\" placeholder=\"Enter API Key\">\n\t<button id=\"saveApiKeyButton\">Save Key</button>\n</div>\n\n<div style=\"margin-top: 20px;\">\n\tOutput either as a comment or at the end of the document:<br />\n\t<button id=\"leadershipReviewerButton\">Review</button>\n\t<button id=\"bulletPointSummarizerButton\">Summarize</button>\n\t<button id=\"articleWriterButton\">Rewrite</button>\n\t<button id=\"fixLegalEnglishButton\">Correct</button>\n\t<button id=\"ExplainLegalEnglishButton\">Explain</button>\n\n\t<p />\n\tOutput as a side by side table:<br />\n\t<button id=\"translateToJapaneseButton\">Translate to Japanese</button>\n\t<button id=\"translateToEnglishButton\">Translate to English</button>\n\n\t<p />\n\tEmergency stop (reload the script after) :<br />\n\t<button id=\"hardStopButton\">Hard Stop</button>\n\n\t<p />\n\t<p />\n\t<p />\n\t<p />\n\t<p />\n\t<p />\n\t---\n\t<div id=\"statusIndicator\" style=\"margin-top: 20px;\">Status: Idle</div>\n</div>\n\t<p />\n\t\t<p />\n\t\t\t<p />\n\t<br />\n\t<button id=\"eraseCredentialsButton\">Edit Credentials</button>"
+  language: html
+style:
+  content: |-
+    section.samples {
+        margin-top: 20px;
+    }
+
+    section.samples .ms-Button, section.setup .ms-Button {
+        display: block;
+        margin-bottom: 5px;
+        margin-left: 20px;
+        min-width: 80px;
+    }
+  language: css
+libraries: |
+  https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+  @types/office-js
+
+  office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+  office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+  core-js@2.4.1/client/core.min.js
+  @types/core-js
+
+  jquery@3.1.1
+  @types/jquery@3.3.1
